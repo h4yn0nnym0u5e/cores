@@ -140,6 +140,21 @@ void AudioStream::release(audio_block_t *block)
 	__enable_irq();
 }
 
+void AudioStream::release(audio_block_t *block, bool dummy)
+{
+	release(block);
+}
+
+void AudioStream::release(audio_block_t** block, int dummy)
+{
+	release(block[0]);
+}
+
+void AudioStream::release(audio_block_t** block, int dummy1, bool dummy2)
+{
+	release(block[0]);
+}
+
 // Transmit an audio data block
 // to all streams that connect to an output.  The block
 // becomes owned by all the recepients, but also is still

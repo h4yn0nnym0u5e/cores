@@ -60,6 +60,9 @@
 
 #define AUDIO_SAMPLE_RATE AUDIO_SAMPLE_RATE_EXACT
 
+#define SAFE_RELEASE(...)
+#define SAFE_RELEASE_MANY(...) 
+
 #ifndef __ASSEMBLER__
 class AudioStream;
 class AudioConnection;
@@ -157,6 +160,9 @@ protected:
 	unsigned char num_inputs;
 	static audio_block_t * allocate(void);
 	static void release(audio_block_t * block);
+	static void release(audio_block_t * block, bool dummy);
+	static void release(audio_block_t** block, int dummy);
+	static void release(audio_block_t** block, int dummy1, bool dummy2);
 	void transmit(audio_block_t *block, unsigned char index = 0);
 	audio_block_t * receiveReadOnly(unsigned int index = 0);
 	audio_block_t * receiveWritable(unsigned int index = 0);
