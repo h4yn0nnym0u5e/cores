@@ -42,7 +42,7 @@ bool scope_pin_value;
 
 #define NUM_MASKS  (((MAX_AUDIO_MEMORY / AUDIO_BLOCK_SAMPLES / 2) + 31) / 32)
 
-DMAMEM audio_block_t   AudioStream::silentBlock = {2,0}; //!< silent block: set ref_count so it's copied if receiveWriteable is used
+DMAMEM audio_block_t AudioStream::silentBlock; //!< silent block
 audio_block_t * AudioStream::memory_pool;
 unsigned int AudioStream::num_blocks_in_pool;
 uint32_t AudioStream::memory_pool_available_mask[NUM_MASKS];
@@ -298,6 +298,12 @@ FLASHMEM void AudioStream::initialize_memory(audio_block_t *data, unsigned int n
 	for (i=0; i < num; i++) {
 		data[i].memory_pool_index = i;
 	}
+	
+	// Initialise silent block: in DMAMEM so can't be given an 
+	// initial value at compile time. 
+	silentBlock.ref_count = 2; // ensure receiveWriteable is forced to copy it
+	memset(silentBlock.data,0,sizeof silentBlock.data);
+
 	__enable_irq();
 
 }
@@ -714,7 +720,6 @@ int AudioConnection::disconnect(void)
 // Link a new AudioStream object into the update list. This will occur when
 // its first connection is made to an object already in the list, OR to 
 // an object which isn't in the update list but is a member of a clan.
-int AudioStream::simples = 0;
 void AudioStream::linkIntoUpdateList(const AudioConnection* pC)
 {
 SPRT("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
@@ -728,20 +733,19 @@ dbgPrintClanList();
 		// link the entire clan in, in order.
 		AudioStream* tail = this;		
 		
-if (simples & 1) {		
 SPRT("from ");		
 SPRT((uint32_t) tail,HEX);		
 SPRT(" head = ");		
 SPRT((uint32_t) clan_head,HEX);
+
 		while (tail->next_update)
 			tail = tail->next_update;
+		// tail now points to the last member of our clan
+		// [this->]clan_head is the first member
+		
 SPRT(" tail = ");		
 SPRL((uint32_t) tail,HEX);
 SFSH();
-		// tail now points to the last member of our clan
-		// [this->]clan_head is the first member
-}		
-
 		// Scan the global update list looking for a place to link in
 		for (ppS = &first_update; *ppS != NULL; ppS = &((*ppS)->next_update))
 		{
@@ -768,10 +772,6 @@ SPRL("...active");
 		if (!active && // neither source nor destination is in update list, we're still in limbo
 		 pC->src->clan_head != pC->dst->clan_head) // and in different clans, which need merging
 		{
-						
-if (!(simples & 2)) {
-			pC->src->next_update = pC->dst; // but we know this order is vaguely sane
-} else {
 			// if we want to relink, one clan will absorb another: do the housekeeping
 			if (this == pC->src) // if we're the source
 			{
@@ -810,7 +810,6 @@ SPRL("dst: src within other clan:");
 				// merge ourselves in just after our source
 				updateListMergeInto(&pC->src->next_update,pC->src->clan_head,ourDFU);
 			}
-}
 		}
 		else
 		{
@@ -1068,6 +1067,7 @@ SFSH();
 // true.  Objects that are capable of calling update_all(), typically
 // input and output based on interrupts, must check this variable in
 // their constructors.
+
 AudioStream* AudioStream::update_owner = NULL;
 bool AudioStream::allClansActive = true;
 
