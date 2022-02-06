@@ -134,7 +134,7 @@ public:
 		AudioStream &destination, unsigned char destinationInput);
 	friend class AudioStream;
 	~AudioConnection(); 
-	int disconnect(void);
+	int disconnect(bool inputQueueValid = true);
 	int connect(void);
 	int connect(AudioStream &source, AudioStream &destination) {return connect(source,0,destination,0);};
 	int connect(AudioStream &source, unsigned char sourceOutput,

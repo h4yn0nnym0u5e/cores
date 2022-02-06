@@ -645,7 +645,11 @@ int AudioConnection::connect(AudioStream &source, unsigned char sourceOutput,
 }
 
 
-int AudioConnection::disconnect(void)
+// Discconect an AudioConnection from its soource and destination(s).
+// This can happen on-demand from the program, or as a result of e.g. one of
+// src and dst being deleted. If the latter then the inputQueue is no longer valid,
+// as it's part of the derived class and has already disappeared.
+int AudioConnection::disconnect(bool inputQueueValid /* = true */)
 {
 	AudioConnection *p;
 
@@ -689,7 +693,7 @@ int AudioConnection::disconnect(void)
 	//Remove possible pending src block from destination
 	if (NULL != dst)
 	{
-		if (NULL != dst->inputQueue) 
+		if (inputQueueValid && NULL != dst->inputQueue) 
 		{
 			AudioStream::release(dst->inputQueue[dest_index],false); // release() does NULL pointer check
 			dst->inputQueue[dest_index] = NULL;
@@ -944,8 +948,8 @@ SFSH();
 
 		if (pC->dst == this)
 		{
-			pC->disconnect();	// disconnect this connection
-			pC->dst = NULL;		// can never re-connect, source will no longer exist
+			pC->disconnect(false);	// disconnect this connection: inputQueue is NOT valid
+			pC->dst = NULL;			// can never re-connect, destination will no longer exist
 SPTF("%08X disconnect+NULL (%08X, %08X) ",(uint32_t) pC,(uint32_t) pC->src,(uint32_t) pC->dst);
 //SPRT("=dst ");
 SFSH();
@@ -972,6 +976,11 @@ SFSH();
 
 
 // Destructor: quite a lot of housekeeping to do
+// Note that at this point our derived object is invalid, so we have to be very careful
+// not to refer to anything it provided. In particular, the inputQueue[] array has
+// gone, so when we disconnect any AudioConnection objects they MUST NOT try to
+// release audio blocks. This should have been done already using a SAFE_RELEASE()
+// macro, in any case.
 AudioStream::~AudioStream()
 {
 	AudioStream** ppS; // iterating pointer
