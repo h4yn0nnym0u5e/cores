@@ -6753,9 +6753,8 @@ typedef struct {
 	volatile uint32_t SAMR;			// 140
 	volatile uint32_t unused11[3];
 	volatile uint32_t SASR;			// 150
-	volatile uint32_t unused12[3];
 	volatile uint32_t STAR;			// 154
-	volatile uint32_t unused13[3];
+	volatile uint32_t unused13[2];
 	volatile uint32_t STDR;			// 160
 	volatile uint32_t unused14[3];
 	volatile uint32_t SRDR;			// 170
@@ -9993,4 +9992,10 @@ struct arm_fault_info_struct {
 	uint32_t crc;  // crc must be last
 };
 
+// Breadcrumbs stored in the top 128 bytes of OCRAM (at 0x2027FFC0)
+struct crashreport_breadcrumbs_struct {
+	uint32_t bitmask;
+	uint32_t value[6];
+	uint32_t checksum; // currently unused
+};
 
