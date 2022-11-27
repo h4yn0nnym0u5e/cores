@@ -2535,9 +2535,9 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
-	AUDIO_CHANNELS,					// bNrChannels = 2
-	2,					// bSubFrameSize = 2 byte
-	16,					// bBitResolution = 16 bits
+	AUDIO_CHANNELS,		// bNrChannels = 2
+	AUDIO_SAMPLE_BYTES,	// bSubFrameSize = 2 byte
+	AUDIO_BIT_DEPTH,	// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
 	AUDIO_SAMPLE_FREQ((int) AUDIO_FREQUENCY),		// tSamFreq
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
@@ -2594,9 +2594,9 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
-	AUDIO_CHANNELS,					// bNrChannels = 2
-	2,					// bSubFrameSize = 2 byte
-	16,					// bBitResolution = 16 bits
+	AUDIO_CHANNELS,		// bNrChannels = 2
+	AUDIO_SAMPLE_BYTES,	// bSubFrameSize = 2 byte
+	AUDIO_BIT_DEPTH,	// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
 	AUDIO_SAMPLE_FREQ((int) AUDIO_FREQUENCY),		// tSamFreq
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
