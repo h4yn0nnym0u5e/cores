@@ -77,6 +77,7 @@ static void rx_event(transfer_t *t)
 	usb_receive(AUDIO_RX_ENDPOINT, &rx_transfer);
 }
 
+volatile uint32_t sync_event_count;
 static void sync_event(transfer_t *t)
 {
 	// USB 2.0 Specification, 5.12.4.2 Feedback, pages 73-75
@@ -85,6 +86,7 @@ static void sync_event(transfer_t *t)
 	usb_prepare_transfer(&sync_transfer, &usb_audio_sync_feedback, usb_audio_sync_nbytes, 0);
 	arm_dcache_flush(&usb_audio_sync_feedback, usb_audio_sync_nbytes);
 	usb_transmit(AUDIO_SYNC_ENDPOINT, &sync_transfer);
+sync_event_count++;	
 }
 
 void usb_audio_configure(void)
@@ -246,7 +248,13 @@ void AudioInputUSB::update(void)
 	__enable_irq();
 	if (f) {
 		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
-		feedback_accumulator += diff * 1;
+		//feedback_accumulator += diff * 1;
+		// adapted from https://forum.pjrc.com/threads/61142-USB-Audio-Frame-Sync-on-Teensy-4-0?p=258583&viewfull=1#post258583
+		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000;
+		if (diff > 0)
+		   feedback_accumulator += feedback_accumulator >> 5;       // fast
+		else if (diff < 0)
+		   feedback_accumulator -= feedback_accumulator >> 5;       // slow
 		//uint32_t feedback = (feedback_accumulator >> 8) + diff * 100;
 		//usb_audio_sync_feedback = feedback;
 
@@ -288,7 +296,6 @@ int AudioOutputUSB::accumulator;
 int AudioOutputUSB::subtract;  
 /*DMAMEM*/ uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE/2] __attribute__ ((used, aligned(32)));
 
-
 static void tx_event(transfer_t *t)
 {
 	int len = usb_audio_transmit_callback();
@@ -323,6 +330,8 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
 	}
 }
 
+int overrun_count, underrun_count;
+
 /*
  * On update(), we just receive the audio blocks and keep a set of pointers
  * to them. The USB transmit callback will then copy them to the transmit buffer
@@ -333,6 +342,7 @@ void AudioOutputUSB::update(void)
 	audio_block_t* chans[AUDIO_CHANNELS];
 	int i;
 	
+digitalWriteFast(1,1);
 
 	// get the audio data
 	for (i=0;i<AUDIO_CHANNELS;i++)
@@ -390,6 +400,8 @@ void AudioOutputUSB::update(void)
 			} 
 			else 
 			{
+digitalWriteFast(1,0);
+overrun_count++;
 				// buffer overrun - PC is consuming too slowly
 				for (i=0;i<AUDIO_CHANNELS;i++)
 				{
@@ -399,6 +411,7 @@ void AudioOutputUSB::update(void)
 					release(discard);
 				}
 				offset_1st = 0; // TODO: discard part of this data?
+digitalWriteFast(1,1);
 			}
 			__enable_irq();
 		}
@@ -410,7 +423,7 @@ void AudioOutputUSB::update(void)
 			
 		}
 	}
-		
+digitalWriteFast(1,0);
 }
 
 
@@ -434,6 +447,7 @@ static void interleave_from_blocks(int16_t* transmit_buffer,	//!< next free samp
 // no data to transmit
 unsigned int usb_audio_transmit_callback(void)
 {
+digitalWriteFast(0,1);
 	uint32_t avail, num, target = AudioOutputUSB::normal_target, offset, len=0;
 
 	// adjust target number of samples we want to transmit, if needed
@@ -449,9 +463,12 @@ unsigned int usb_audio_transmit_callback(void)
 		num = target - len; // number of samples left to transmit
 		if (NULL == AudioOutputUSB::outgoing[0]) 
 		{
+digitalWriteFast(0,0);
+underrun_count++;
 			// buffer underrun - PC is consuming too quickly
 			memset(usb_audio_transmit_buffer + len, 0, num * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0]);
 			//serial_print("%");
+digitalWriteFast(0,1);
 			break;
 		}
 		offset = AudioOutputUSB::offset_1st;
@@ -467,6 +484,10 @@ unsigned int usb_audio_transmit_callback(void)
 		interleave_from_blocks((int16_t*) usb_audio_transmit_buffer + len * AUDIO_CHANNELS,
 								AudioOutputUSB::outgoing, AUDIO_CHANNELS, offset,
 								num);
+#if IMXRT_CACHE_ENABLED >= 2
+		arm_dcache_flush_delete(usb_audio_transmit_buffer + len * AUDIO_CHANNELS,
+								AUDIO_CHANNELS * num * sizeof AudioOutputUSB::outgoing[0]->data[0]);
+#endif
 		len += num;
 		offset += num;
 		if (offset >= AUDIO_BLOCK_SAMPLES) 
@@ -484,6 +505,7 @@ unsigned int usb_audio_transmit_callback(void)
 			AudioOutputUSB::offset_1st = offset;
 		}
 	}
+digitalWriteFast(0,0);
 	return target * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
 }
 #endif
