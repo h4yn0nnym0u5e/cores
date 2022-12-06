@@ -63,6 +63,8 @@ uint32_t feedback_accumulator;
 
 volatile uint32_t usb_audio_underrun_count;
 volatile uint32_t usb_audio_overrun_count;
+volatile uint32_t usb_audio_buffered;
+volatile uint32_t usb_audio_buffered_update;
 
 
 static void rx_event(transfer_t *t)
@@ -94,7 +96,7 @@ void usb_audio_configure(void)
 	printf("usb_audio_configure\n");
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
-	feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
+	feedback_accumulator = ((AUDIO_SAMPLE_RATE_EXACT - 15.0f) / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
 		usb_audio_sync_rshift = 8;
@@ -156,6 +158,8 @@ void usb_audio_receive_callback(unsigned int len)
 	audio_block_t *chans[AUDIO_CHANNELS];
 	const uint16_t *data;
 	const uint32_t *data_orig;
+	
+digitalWriteFast(13,0);
 
 	AudioInputUSB::receive_flag = 1;
 	len /= AUDIO_CHANNELS * AUDIO_SAMPLE_BYTES; // 1 sample = channels * bytes per sample
@@ -316,9 +320,9 @@ void AudioOutputUSB::begin(void)
 	}
 	
 	// preset sample rate fine-tuning: assumes rate is an integer number of samples per second
-	normal_target = (int) (AUDIO_FREQUENCY / 1000); 		// at least this many samples per millisecond 
+	normal_target = (int) ((AUDIO_FREQUENCY-5) / 1000); 		// at least this many samples per millisecond 
 	accumulator = 500; 										// start half-full
-	subtract = (int) AUDIO_FREQUENCY - normal_target*1000;	// accumulate error this fast
+	subtract = (int) (AUDIO_FREQUENCY-5) - normal_target*1000;	// accumulate error this fast
 }
 
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
@@ -343,6 +347,8 @@ void AudioOutputUSB::update(void)
 	int i;
 	
 digitalWriteFast(1,1);
+digitalWriteFast(13,0);
+usb_audio_buffered_update = micros();
 
 	// get the audio data
 	for (i=0;i<AUDIO_CHANNELS;i++)
@@ -448,6 +454,7 @@ static void interleave_from_blocks(int16_t* transmit_buffer,	//!< next free samp
 unsigned int usb_audio_transmit_callback(void)
 {
 digitalWriteFast(0,1);
+digitalWriteFast(13,1);
 	uint32_t avail, num, target = AudioOutputUSB::normal_target, offset, len=0;
 
 	// adjust target number of samples we want to transmit, if needed
@@ -505,6 +512,8 @@ digitalWriteFast(0,1);
 			AudioOutputUSB::offset_1st = offset;
 		}
 	}
+	usb_audio_buffered = micros() - usb_audio_buffered_update;
+
 digitalWriteFast(0,0);
 	return target * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
 }
