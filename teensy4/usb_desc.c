@@ -1531,9 +1531,9 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	9, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
 	AUDIO_TX_ENDPOINT | 0x80,		// bEndpointAddress
-	0x09, 					// bmAttributes = isochronous, adaptive
-	LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),	// wMaxPacketSize
-	4,			 		// bInterval, 4 = every 8 micro-frames
+	0x05, //0x09, 					// bmAttributes = isochronous, adaptive
+	LSB(AUDIO_PACKET_SIZE(AUDIO_TX_SIZE)), MSB(AUDIO_PACKET_SIZE(AUDIO_TX_SIZE)),	// wMaxPacketSize
+	AUDIO_INTERVAL(AUDIO_TX_SIZE),	// bInterval, 4 = every 8 micro-frames
 	0,					// bRefresh
 	0,					// bSynchAddress
 	// Class-Specific AS Isochronous Audio Data Endpoint Descriptor
@@ -1591,8 +1591,8 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
 	AUDIO_RX_ENDPOINT,			// bEndpointAddress
 	0x05, 					// bmAttributes = isochronous, asynchronous
-	LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),	// wMaxPacketSize
-	4,			 		// bInterval, 4 = every 8 micro-frames
+	LSB(AUDIO_PACKET_SIZE(AUDIO_RX_SIZE)), MSB(AUDIO_PACKET_SIZE(AUDIO_RX_SIZE)),	// wMaxPacketSize
+	AUDIO_INTERVAL(AUDIO_RX_SIZE),	// bInterval, 4 = every 8 micro-frames
 	0,					// bRefresh
 	AUDIO_SYNC_ENDPOINT | 0x80,		// bSynchAddress
 	// Class-Specific AS Isochronous Audio Data Endpoint Descriptor
@@ -2599,6 +2599,7 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	AUDIO_BIT_DEPTH,	// bBitResolution = 16 bits
 	1,					// bSamFreqType = 1 frequency
 	AUDIO_SAMPLE_FREQ((int) AUDIO_FREQUENCY),		// tSamFreq
+	
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
 	9, 					// bLength

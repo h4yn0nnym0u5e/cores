@@ -47,6 +47,10 @@
 #define ENDPOINT_RECEIVE_BULK		0x000000C8
 #define ENDPOINT_RECEIVE_INTERRUPT	0x000000CC
 
+#define AUDIO_PACKET_SIZE(sz) (((sz) <= 1024)?(sz):((sz)/2))
+#define AUDIO_INTERVAL(sz)    (((sz) <= 1024)?4:3)
+//#define AUDIO_INTERVAL(sz)  1
+
 /*
 Each group of #define lines below corresponds to one of the
 settings in the Tools > USB Type menu.  This file defines what
@@ -746,6 +750,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 #elif defined(USB_AUDIO)
   #define VENDOR_ID		0x16C0
   #define PRODUCT_ID		0x04D2
+  #define BCD_DEVICE (((AUDIO_CHANNELS << 8) & 0xF00) | (((int)(AUDIO_FREQUENCY / 10000)<<4) & 0xF0) | (((int)(AUDIO_FREQUENCY / 1000)%10) & 0xF))
   #define MANUFACTURER_NAME	{'T','e','e','n','s','y','d','u','i','n','o'}
   #define MANUFACTURER_NAME_LEN	11
   #define PRODUCT_NAME		{'T','e','e','n','s','y',' ','A','u','d','i','o'}
@@ -777,6 +782,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 #elif defined(USB_MIDI_AUDIO_SERIAL)
   #define VENDOR_ID		0x16C0
   #define PRODUCT_ID		0x048A
+  #define BCD_DEVICE (0x1000 | ((AUDIO_CHANNELS << 8) & 0xF00) | (((int)(AUDIO_FREQUENCY / 10000)<<4) & 0xF0) | (((int)(AUDIO_FREQUENCY / 1000)%10) & 0xF))
   #define MANUFACTURER_NAME	{'T','e','e','n','s','y','d','u','i','n','o'}
   #define MANUFACTURER_NAME_LEN	11
   #define PRODUCT_NAME		{'T','e','e','n','s','y',' ','M','I','D','I','/','A','u','d','i','o'}
@@ -822,7 +828,8 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 #elif defined(USB_MIDI16_AUDIO_SERIAL)
   #define VENDOR_ID		0x16C0
   #define PRODUCT_ID		0x048A
-  #define BCD_DEVICE		0x0212
+//  #define BCD_DEVICE		0x0212
+  #define BCD_DEVICE (0x2000 | ((AUDIO_CHANNELS << 8) & 0xF00) | (((int)(AUDIO_FREQUENCY / 10000)<<4) & 0xF0) | (((int)(AUDIO_FREQUENCY / 1000)%10) & 0xF))
   #define MANUFACTURER_NAME	{'T','e','e','n','s','y','d','u','i','n','o'}
   #define MANUFACTURER_NAME_LEN	11
   #define PRODUCT_NAME		{'T','e','e','n','s','y',' ','M','I','D','I','x','1','6','/','A','u','d','i','o'}

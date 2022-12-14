@@ -70,7 +70,7 @@ volatile uint32_t usb_audio_buffered_update;
 static void rx_event(transfer_t *t)
 {
 	if (t) {
-		int len = AUDIO_RX_SIZE - ((rx_transfer.status >> 16) & 0x7FFF);
+		int len = AUDIO_PACKET_SIZE(AUDIO_RX_SIZE) - ((rx_transfer.status >> 16) & 0x7FFF);
 		// printf("rx %u\n", len);
 		usb_audio_receive_callback(len);
 	}
@@ -96,7 +96,7 @@ void usb_audio_configure(void)
 	printf("usb_audio_configure\n");
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
-	feedback_accumulator = ((AUDIO_SAMPLE_RATE_EXACT - 15.0f) / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
+	feedback_accumulator = ((AUDIO_SAMPLE_RATE_EXACT) / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
 		usb_audio_sync_rshift = 8;
@@ -256,9 +256,9 @@ void AudioInputUSB::update(void)
 		// adapted from https://forum.pjrc.com/threads/61142-USB-Audio-Frame-Sync-on-Teensy-4-0?p=258583&viewfull=1#post258583
 		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000;
 		if (diff > 0)
-		   feedback_accumulator += feedback_accumulator >> 5;       // fast
+		   feedback_accumulator += feedback_accumulator >> 8;       // fast
 		else if (diff < 0)
-		   feedback_accumulator -= feedback_accumulator >> 5;       // slow
+		   feedback_accumulator -= feedback_accumulator >> 8;       // slow
 		//uint32_t feedback = (feedback_accumulator >> 8) + diff * 100;
 		//usb_audio_sync_feedback = feedback;
 
@@ -320,9 +320,10 @@ void AudioOutputUSB::begin(void)
 	}
 	
 	// preset sample rate fine-tuning: assumes rate is an integer number of samples per second
-	normal_target = (int) ((AUDIO_FREQUENCY-5) / 1000); 		// at least this many samples per millisecond 
-	accumulator = 500; 										// start half-full
-	subtract = (int) (AUDIO_FREQUENCY-5) - normal_target*1000;	// accumulate error this fast
+	int txFreq = 1000 * (1 << (4 - AUDIO_INTERVAL(AUDIO_TX_SIZE)));
+	normal_target = (int) ((AUDIO_FREQUENCY) / txFreq); 		// at least this many samples per millisecond 
+	accumulator = txFreq / 2; 									// start half-full
+	subtract = (int) (AUDIO_FREQUENCY) - normal_target*txFreq;	// accumulate error this fast
 }
 
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
@@ -515,7 +516,7 @@ digitalWriteFast(0,1);
 	usb_audio_buffered = micros() - usb_audio_buffered_update;
 
 digitalWriteFast(0,0);
-	return target * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
+	return len * AUDIO_CHANNELS * sizeof AudioOutputUSB::outgoing[0]->data[0];
 }
 #endif
 
