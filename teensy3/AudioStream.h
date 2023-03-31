@@ -324,6 +324,7 @@ class AudioDebug
 		AudioStream* 	 clanHead(AudioStream& s) { return s.clan_head;}
 		uint8_t 	 	 getNumConnections(AudioStream& s) { return s.numConnections;}
 		bool 	 	 	 isActive(AudioStream& s) { return s.active;}
+		bool 	 	 	 isUpdateOwner(AudioStream& s) { return &s == s.update_owner;}
 		void 			 zapClans() { AudioStream::first_clan = NULL;}
 		
 };

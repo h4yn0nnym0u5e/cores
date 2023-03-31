@@ -67,7 +67,6 @@ class AudioInputUSB : public AudioStream
 public:
 	AudioInputUSB(void) : AudioStream(0, NULL) { begin(); }
 	virtual void update(void);
-	void begin(void);
 	friend void usb_audio_receive_callback(unsigned int len);
 	friend int usb_audio_set_feature(void *stp, uint8_t *buf);
 	friend int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
@@ -77,6 +76,7 @@ public:
 		return (float)(features.volume) * (1.0 / (float)FEATURE_MAX_VOLUME);
 	}
 private:
+	void begin(void);
 	static bool update_responsibility;
 	static audio_block_t *incoming_left;
 	static audio_block_t *incoming_right;
@@ -91,9 +91,9 @@ class AudioOutputUSB : public AudioStream
 public:
 	AudioOutputUSB(void) : AudioStream(2, inputQueueArray) { begin(); }
 	virtual void update(void);
-	void begin(void);
 	friend unsigned int usb_audio_transmit_callback(void);
 private:
+	void begin(void);
 	static bool update_responsibility;
 	static audio_block_t *left_1st;
 	static audio_block_t *left_2nd;
