@@ -16,7 +16,6 @@
 #include "avr/pgmspace.h"
 #include <string.h>
 #include "debug/printf.h"
-#include "AudioStream.h"
 
 //#define LOG_SIZE  20
 //uint32_t transfer_log_head=0;
@@ -58,10 +57,6 @@ struct endpoint_struct {
 	uint32_t pointer4;
 	uint32_t callback_param;
 };*/
-
-#ifdef EXPERIMENTAL_INTERFACE
-uint8_t experimental_buffer[1152] __attribute__ ((section(".dmabuffers"), aligned(64)));
-#endif
 
 endpoint_t endpoint_queue_head[(NUM_ENDPOINTS+1)*2] __attribute__ ((used, aligned(4096), section(".endpoint_queue") ));
 
@@ -486,7 +481,9 @@ static void endpoint0_setup(uint64_t setupdata)
 		usb_mtp_configure();
 		#endif
 		#if defined(EXPERIMENTAL_INTERFACE)
-		endpoint_queue_head[2].unused1 = (uint32_t)experimental_buffer;
+		memset(endpoint_queue_head + 2, 0, sizeof(endpoint_t) * 2);
+		endpoint_queue_head[2].pointer4 = 0xB8C6CF5D;
+		endpoint_queue_head[3].pointer4 = 0x74D59319;
 		#endif
 		endpoint0_receive(NULL, 0, 0);
 		return;
@@ -533,6 +530,12 @@ static void endpoint0_setup(uint64_t setupdata)
 		}
 		endpoint0_receive(NULL, 0, 0);
 		return;
+#ifdef EXPERIMENTAL_INTERFACE
+	  case 0xF8C0: // GET_MS_DESCRIPTOR (bRequest=0xF8 because microsoft_os_string_desc)
+		if ((setup.wIndex & 0xFF00) != 0) break; // 1=Genre, 4=Compat ID, 5=Properties
+		setup.wIndex |= 0xEE00; // alter wIndex and treat as normal USB descriptor
+		__attribute__((fallthrough));
+#endif
 	  case 0x0680: // GET_DESCRIPTOR
 	  case 0x0681:
 		for (list = usb_descriptor_list; list->addr != NULL; list++) {
@@ -589,6 +592,7 @@ static void endpoint0_setup(uint64_t setupdata)
 			usb_cdc3_line_rtsdtr = setup.wValue;
 		}
 		#endif
+		__attribute__((fallthrough));
 		// fall through to next case, to always send ZLP ACK
 	  case 0x2321: // CDC_SEND_BREAK
 		endpoint0_receive(NULL, 0, 0);
@@ -662,9 +666,9 @@ static void endpoint0_setup(uint64_t setupdata)
 		break;
 	  case 0x81A2: // GET_CUR (wValue=0, wIndex=interface, wLength=len)
 		if (setup.wLength >= 3) {
-			endpoint0_buffer[0] = ((int)(AUDIO_SAMPLE_RATE_EXACT)) & 0xff;
-			endpoint0_buffer[1] = (((int)(AUDIO_SAMPLE_RATE_EXACT)) >> 8) & 0xff;
-			endpoint0_buffer[2] = (((int)(AUDIO_SAMPLE_RATE_EXACT)) >> 16) & 0xff;
+			endpoint0_buffer[0] = 44100 & 255;
+			endpoint0_buffer[1] = 44100 >> 8;
+			endpoint0_buffer[2] = 0;
 			endpoint0_transmit(endpoint0_buffer, 3, 0);
 			return;
 		}
