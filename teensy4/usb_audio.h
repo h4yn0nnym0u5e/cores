@@ -103,11 +103,12 @@ public:
 	virtual void update(void);
 	void begin(void);
 	friend unsigned int usb_audio_transmit_callback(void);
+	bool isTransmitting(void) { return usb_audio_transmit_setting != 0; }
 private:
 	static bool update_responsibility;
-	volatile static audio_block_t* outgoing[AUDIO_CHANNELS];
-	volatile static audio_block_t* ready[AUDIO_CHANNELS];
-	volatile static uint16_t offset_1st;
+	static audio_block_t* outgoing[AUDIO_CHANNELS];
+	static audio_block_t* ready[AUDIO_CHANNELS];
+	static uint16_t offset_1st;
 	audio_block_t *inputQueueArray[AUDIO_CHANNELS];
 	
 	// variables to ensure correct sync when the sample rate

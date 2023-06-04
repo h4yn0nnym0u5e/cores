@@ -68,15 +68,16 @@ volatile int16_t sink_datarate_buf[SINK_DATARATE_BUF_SIZE] = {0};
 volatile uint32_t sink_datarate_idx;
 uint32_t report_sink_offset(int16_t new_rate) {
 	sink_datarate_buf[sink_datarate_idx++ % SINK_DATARATE_BUF_SIZE] = new_rate;
+	return 0;
 }
 float get_sink_pressure() {
-	char c[100];
+	//char c[100];
 	if (sink_datarate_idx < SINK_DATARATE_BUF_SIZE) {
 		return 0.0f;
 	}
 
 	float avg = 0.0f;
-	for (uint16_t i; i < SINK_DATARATE_BUF_SIZE; i++) {
+	for (uint16_t i=0; i < SINK_DATARATE_BUF_SIZE; i++) {
 		avg += (float)sink_datarate_buf[i] / (float)SINK_DATARATE_BUF_SIZE;
 	}
 
@@ -112,13 +113,13 @@ static void rx_event(transfer_t *t)
 	usb_receive(AUDIO_RX_ENDPOINT, &rx_transfer);
 }
 
-extern void my_USB_sync_callback(uint32_t );
+//extern void my_USB_sync_callback(uint32_t );
 
 static void sync_event(transfer_t *t)
 {
 	sync_counter++;
 	
-my_USB_sync_callback(feedback_accumulator);
+//my_USB_sync_callback(feedback_accumulator);
 	
 	// USB 2.0 Specification, 5.12.4.2 Feedback, pages 73-75
 	usb_audio_sync_feedback = feedback_accumulator >> usb_audio_sync_rshift;
@@ -200,7 +201,7 @@ void usb_audio_receive_callback(unsigned int len)
 {
 	unsigned int count, avail;
 	audio_block_t *chans[AUDIO_CHANNELS];
-	const uint16_t *data;
+	//const uint16_t *data;
 	const uint32_t *data_orig;
 
 	AudioInputUSB::receive_flag = 1;
@@ -317,7 +318,7 @@ void AudioInputUSB::update(void)
 		chans[i] = ready[i];
 		ready[i] = NULL;
 	}
-	uint16_t c = incoming_count;
+	//uint16_t c = incoming_count;
 	uint8_t f = receive_flag;
 	receive_flag = 0;
 	__enable_irq();
@@ -329,7 +330,7 @@ void AudioInputUSB::update(void)
 		//            We must request a lower Ff (desired data rate).
 		// diff > 0   Receiving fewer samples than our downstream is consuming, risk of underrun.
 		//            Must request a higher Ff (desired data rate).
-		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
+		//int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
 
 		//report_sink_offset(diff);
 		//float pressure = get_sink_pressure();
@@ -382,23 +383,23 @@ void AudioInputUSB::update(void)
 /*********** AudioOutputUSB *************/
 #if 1
 bool AudioOutputUSB::update_responsibility;
-volatile audio_block_t * AudioOutputUSB::outgoing[AUDIO_CHANNELS]; // being transmitted by USB
-volatile audio_block_t * AudioOutputUSB::ready[AUDIO_CHANNELS]; // next in line to be transmitted
-volatile uint16_t AudioOutputUSB::offset_1st = AUDIO_BLOCK_SAMPLES;
+audio_block_t * AudioOutputUSB::outgoing[AUDIO_CHANNELS]; // being transmitted by USB
+audio_block_t * AudioOutputUSB::ready[AUDIO_CHANNELS]; // next in line to be transmitted
+uint16_t AudioOutputUSB::offset_1st = AUDIO_BLOCK_SAMPLES;
 int AudioOutputUSB::normal_target; 
 int AudioOutputUSB::low_water;   
 int AudioOutputUSB::high_water;  
 /*DMAMEM*/ uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE/2] __attribute__ ((used, aligned(32)));
 
 
-static volatile uint32_t USB_tx_provided;
-extern void	my_USB_tx_callback(int len, uint32_t provided);
+//static volatile uint32_t USB_tx_provided;
+//extern void	my_USB_tx_callback(int len, uint32_t provided);
 
 static void tx_event(transfer_t *t)
 {
 	int len = usb_audio_transmit_callback();
 	
-my_USB_tx_callback(len,USB_tx_provided);
+//my_USB_tx_callback(len,USB_tx_provided);
 
 	usb_audio_sync_feedback = feedback_accumulator >> usb_audio_sync_rshift;
 	usb_prepare_transfer(&tx_transfer, usb_audio_transmit_buffer, len, 0);
@@ -423,6 +424,7 @@ void AudioOutputUSB::begin(void)
 	high_water = 200;
 }
 
+/*
 static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsigned int len)
 {
 	// TODO: optimize...
@@ -431,21 +433,23 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
 		len--;
 	}
 }
+*/
 
 /*
  * On update(), we just receive the audio blocks and keep a set of pointers
  * to them. The USB transmit callback will then copy them to the transmit buffer
  * and release them at some point in the future.
  */
-extern uint8_t s7ready;
-#define S7OUT(x) if (s7ready) Serial7.print(x)
+//extern uint8_t s7ready;
+//#define S7OUT(x) if (s7ready) Serial7.print(x)
+#define S7OUT(...)
 
 void AudioOutputUSB::update(void)
 {
 	audio_block_t* chans[AUDIO_CHANNELS];
 	int i;
 
-USB_tx_provided += AUDIO_CHANNELS * AUDIO_BLOCK_SAMPLES * sizeof(int16_t);
+//USB_tx_provided += AUDIO_CHANNELS * AUDIO_BLOCK_SAMPLES * sizeof(int16_t);
 S7OUT('u');
 
 	// get the audio data
@@ -566,7 +570,8 @@ static void interleave_from_blocks(int16_t* transmit_buffer,	//!< next free samp
 // no data to transmit
 unsigned int usb_audio_transmit_callback(void)
 {
-	uint32_t avail, num, target = AudioOutputUSB::normal_target, offset, len=0;
+	uint32_t target = AudioOutputUSB::normal_target, offset, len=0;
+	int avail, num;
 
 	// adjust target number of samples we want to transmit, if needed
 	// how many have we got available?
