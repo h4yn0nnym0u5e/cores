@@ -763,7 +763,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_INTERVAL    2
   #define AUDIO_INTERFACE	1	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     3
-  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_CHANNELS        2 // Must be a multiple of 2
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
@@ -808,7 +808,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE_480      512
   #define AUDIO_INTERFACE	3	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     5
-  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_CHANNELS        2 // Must be a multiple of 2
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
@@ -854,7 +854,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE_480      512
   #define AUDIO_INTERFACE	3	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     5
-  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_CHANNELS        2 // Must be a multiple of 2
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
@@ -940,7 +940,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define KEYMEDIA_INTERVAL     4
   #define AUDIO_INTERFACE	9	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     13
-  #define AUDIO_CHANNELS        8 // Must be a multiple of 2
+  #define AUDIO_CHANNELS        2 // Must be a multiple of 2
   #define AUDIO_FREQUENCY       AUDIO_SAMPLE_RATE_EXACT
   #define AUDIO_SAMPLE_BYTES    (sizeof ((audio_block_t*) 0)->data[0])
   #define AUDIO_BIT_DEPTH       (AUDIO_SAMPLE_BYTES * 8)
