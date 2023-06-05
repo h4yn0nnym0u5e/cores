@@ -56,7 +56,7 @@ extern int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
 struct usb_audio_features_struct {
   int change;  // set to 1 when any value is changed
   int mute;    // 1=mute, 0=unmute
-  int volume;  // volume from 0 to FEATURE_MAX_VOLUME, maybe should be float from 0.0 to 1.0
+  int volume[AUDIO_CHANNELS+1];  // volume from 0 to FEATURE_MAX_VOLUME, maybe should be float from 0.0 to 1.0
 };
 
 #ifdef __cplusplus
@@ -64,6 +64,8 @@ struct usb_audio_features_struct {
 
 class AudioInputUSB : public AudioStream
 {
+protected:	
+	static struct usb_audio_features_struct features;
 public:
 	AudioInputUSB(void) : AudioStream(0, NULL) { begin(); }
 	virtual void update(void);
@@ -71,11 +73,12 @@ public:
 	friend void usb_audio_receive_callback(unsigned int len);
 	friend int usb_audio_set_feature(void *stp, uint8_t *buf);
 	friend int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
-	static struct usb_audio_features_struct features;
-	float volume(void) {
+	static float volume(int ch) {
 		if (features.mute) return 0.0;
-		return (float)(features.volume) * (1.0 / (float)FEATURE_MAX_VOLUME);
+		return (float)(features.volume[ch]) * (1.0 / (float)FEATURE_MAX_VOLUME);
 	}
+	static float volume(void) { return volume(1); }
+	static bool isMuted(void) { return features.mute != 0; }
 private:
 	static bool update_responsibility;
 	static audio_block_t *incoming[AUDIO_CHANNELS];

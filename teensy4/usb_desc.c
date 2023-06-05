@@ -622,7 +622,7 @@ static uint8_t flightsim_report_desc[] = {
 
 #define AUDIO_INTERFACE_DESC_POS	KEYMEDIA_INTERFACE_DESC_POS+KEYMEDIA_INTERFACE_DESC_SIZE
 #ifdef  AUDIO_INTERFACE
-#define AUDIO_INTERFACE_DESC_SIZE	8 + 9+10+12+9+12+10+9 + 9+9+7+11+9+7 + 9+9+7+11+9+7+9
+#define AUDIO_INTERFACE_DESC_SIZE	8 + 9+10+12+9+12+(8+AUDIO_CHANNELS*AUDIO_CONTROL_SIZE)+9 + 9+9+7+11+9+7 + 9+9+7+11+9+7+9
 #else
 #define AUDIO_INTERFACE_DESC_SIZE	0
 #endif
@@ -1473,17 +1473,29 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       0,                    // iChannelNames
       0,                    // iTerminal, optional string descriptor
 
+
       // Feature Unit Descriptor (Volume)
-      10,                   // bLength
-      CS_DESC_TYPE_INTERFACE,                 // bDescriptorType = CS_INTERFACE
-      CS_DESC_SUBTYPE_FEATURE_UNIT,                 // bDescriptorSubType = FEATURE_UNIT
+      8+AUDIO_CHANNELS				   // bLength
+	   *AUDIO_CONTROL_SIZE,            
+      CS_DESC_TYPE_INTERFACE,          // bDescriptorType = CS_INTERFACE
+      CS_DESC_SUBTYPE_FEATURE_UNIT,    // bDescriptorSubType = FEATURE_UNIT
       0x31,                 // bUnitID TODO(mcginty): why 0x31?
       0x03,                 // bSourceID (Input Terminal)
-      0x01,                 // bControlSize (each channel is 1 byte, 3 channels)
+      AUDIO_CONTROL_SIZE,   // bControlSize (each channel is 1 byte, 3 channels)
       AUDIO_CONTROL_MUTE,   // bmaControls(0) Master: Mute
-      AUDIO_CONTROL_VOL,    // bmaControls(1) Left: Volume TODO(mcginty): remove?
-      AUDIO_CONTROL_VOL,    // bmaControls(2) Right: Volume TODO(mcginty): remove?
+      AUDIO_CONTROL_FLAGS,  // bmaControls(1) Left: Volume
+      AUDIO_CONTROL_FLAGS,  // bmaControls(2) Right: Volume
+#if AUDIO_CHANNELS > 2
+	  AUDIO_CONTROL_FLAGS, AUDIO_CONTROL_FLAGS,
+#if AUDIO_CHANNELS > 4
+	  AUDIO_CONTROL_FLAGS, AUDIO_CONTROL_FLAGS,
+#if AUDIO_CHANNELS > 6
+	  AUDIO_CONTROL_FLAGS, AUDIO_CONTROL_FLAGS,
+#endif // AUDIO_CHANNELS > 6
+#endif // AUDIO_CHANNELS > 4
+#endif // AUDIO_CHANNELS > 2	  
       0x00,                 // iFeature, optional string descriptor
+
 
       // Output Terminal Descriptor
       // USB DCD for Audio Devices 1.0, Table 4-4, page 40
@@ -2523,17 +2535,31 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
       0x03, 0x00,                      // wChannelConfig, 0x0003 = Left & Right Front
       0,                               // iChannelNames
       0,                               // iTerminal
-      // Volume feature descriptor
-      10,                              // bLength
+	  
+	  
+      // Volume feature descriptor: variable size depending on channel count
+      8+AUDIO_CHANNELS				   // bLength
+	   *AUDIO_CONTROL_SIZE,            
       0x24,                            // bDescriptorType = CS_INTERFACE
       0x06,                            // bDescriptorSubType = FEATURE_UNIT
       0x31,                            // bUnitID
       0x03,                            // bSourceID (Input Terminal)
-      0x01,                            // bControlSize (each channel is 1 byte, 3 channels)
+      AUDIO_CONTROL_SIZE,              // bControlSize (each channel is 1 byte, 3 channels)
       0x01,                            // bmaControls(0) Master: Mute
-      0x02,                            // bmaControls(1) Left: Volume
-      0x02,                            // bmaControls(2) Right: Volume
+      AUDIO_CONTROL_FLAGS,             // bmaControls(1) Left: Volume
+      AUDIO_CONTROL_FLAGS,             // bmaControls(2) Right: Volume
+#if AUDIO_CHANNELS > 2
+	  AUDIO_CONTROL_FLAGS, AUDIO_CONTROL_FLAGS,
+#if AUDIO_CHANNELS > 4
+	  AUDIO_CONTROL_FLAGS, AUDIO_CONTROL_FLAGS,
+#if AUDIO_CHANNELS > 6
+	  AUDIO_CONTROL_FLAGS, AUDIO_CONTROL_FLAGS,
+#endif // AUDIO_CHANNELS > 6
+#endif // AUDIO_CHANNELS > 4
+#endif // AUDIO_CHANNELS > 2	  
       0x00,                            // iFeature
+	  
+	  
       // Output Terminal Descriptor
       // USB DCD for Audio Devices 1.0, Table 4-4, page 40
       9,                               // bLength

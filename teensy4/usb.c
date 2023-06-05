@@ -837,7 +837,10 @@ static void endpoint0_complete(void)
 	}
 #endif
 #ifdef AUDIO_INTERFACE
-	if (setup.word1 == 0x02010121 || setup.word1 == 0x01000121 /* TODO: check setup.word2 */) {
+	if ((setup.word1 & 0xFFF0FFFF) == 0x02000121 // volume, any channel
+	  || setup.word1               == 0x01000121 // global mute /* TODO: check setup.word2 */
+		)	 
+	{
 		usb_audio_set_feature(&endpoint0_setupdata, endpoint0_buffer);
 	}
 #endif

@@ -440,9 +440,9 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
  * to them. The USB transmit callback will then copy them to the transmit buffer
  * and release them at some point in the future.
  */
-//extern uint8_t s7ready;
-//#define S7OUT(x) if (s7ready) Serial7.print(x)
-#define S7OUT(...)
+extern uint8_t s7ready;
+#define S7OUT(x) if (s7ready) Serial7.print(x)
+//#define S7OUT(...)
 
 void AudioOutputUSB::update(void)
 {
@@ -667,6 +667,8 @@ struct setup_struct {
 int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen)
 {
 	struct setup_struct setup = *((struct setup_struct *)stp);
+	int ch = setup.bChannel;
+	
 	if (setup.bmRequestType==0xA1) { // should check bRequest, bChannel, and UnitID
 			if (setup.bCS==0x01) { // mute
 				data[0] = AudioInputUSB::features.mute;  // 1=mute, 0=unmute
@@ -675,8 +677,8 @@ int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen)
 			}
 			else if (setup.bCS==0x02) { // volume
 				if (setup.bRequest==0x81) { // GET_CURR
-					data[0] = AudioInputUSB::features.volume & 0xFF;
-					data[1] = (AudioInputUSB::features.volume>>8) & 0xFF;
+					data[0] = AudioInputUSB::features.volume[ch] & 0xFF;
+					data[1] = (AudioInputUSB::features.volume[ch]>>8) & 0xFF;
 				}
 				else if (setup.bRequest==0x82) { // GET_MIN
 					//serial_print("vol get_min\n");
@@ -704,6 +706,8 @@ int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen)
 int usb_audio_set_feature(void *stp, uint8_t *buf) 
 {
 	struct setup_struct setup = *((struct setup_struct *)stp);
+	int ch = setup.bChannel;
+
 	if (setup.bmRequestType==0x21) { // should check bRequest, bChannel and UnitID
 			if (setup.bCS==0x01) { // mute
 				if (setup.bRequest==0x01) { // SET_CUR
@@ -714,7 +718,7 @@ int usb_audio_set_feature(void *stp, uint8_t *buf)
 			}
 			else if (setup.bCS==0x02) { // volume
 				if (setup.bRequest==0x01) { // SET_CUR
-					AudioInputUSB::features.volume = buf[0];
+					AudioInputUSB::features.volume[ch] = buf[0];
 					AudioInputUSB::features.change = 1;
 					return 1;
 				}

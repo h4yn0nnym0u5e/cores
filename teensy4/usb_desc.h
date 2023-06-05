@@ -998,6 +998,10 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 	#define AUDIO_FORMAT_TYPE_I 0x01
 	#define USB_DESC_TYPE_INTERFACE 0x04
 	#define USB_DESC_TYPE_ENDPOINT 0x05
+	
+	// Feature Unit - describe controls available
+	#define AUDIO_CONTROL_SIZE 1 // 1 byte of control flags per channel
+	#define AUDIO_CONTROL_FLAGS (AUDIO_CONTROL_VOL) // just volume for now
 
 	#define CS_DESC_TYPE_INTERFACE 0x24
 	#define CS_DESC_TYPE_ENDPOINT 0x25
