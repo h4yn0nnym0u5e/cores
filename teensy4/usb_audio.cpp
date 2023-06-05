@@ -440,9 +440,9 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
  * to them. The USB transmit callback will then copy them to the transmit buffer
  * and release them at some point in the future.
  */
-extern uint8_t s7ready;
-#define S7OUT(x) if (s7ready) Serial7.print(x)
-//#define S7OUT(...)
+//extern uint8_t s7ready;
+//#define S7OUT(x) if (s7ready) Serial7.print(x)
+#define S7OUT(...)
 
 void AudioOutputUSB::update(void)
 {
