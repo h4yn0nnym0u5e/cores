@@ -198,7 +198,7 @@ FLASHMEM void usb_init(void)
 	//  Recommended: enable all device interrupts including: USBINT, USBERRINT,
 	// Port Change Detect, USB Reset Received, DCSuspend.
 	USB1_USBINTR = USB_USBINTR_UE | USB_USBINTR_UEE | /* USB_USBINTR_PCE | */
-		USB_USBINTR_URE | USB_USBINTR_SLE;
+		USB_USBINTR_URE | USB_USBINTR_SRE | USB_USBINTR_SLE;
 	//_VectorsRam[IRQ_USB1+16] = &usb_isr;
 	attachInterruptVector(IRQ_USB1, &usb_isr);
 	NVIC_ENABLE_IRQ(IRQ_USB1);
@@ -243,8 +243,7 @@ static void update_sof_timer(uint32_t status)
 	
     if (status & USB_USBSTS_SRI)
     {
-      count++;
-      if (count > USB_SOF_TIMER_COUNT-1)
+      if (--count <= 0)
       {
         uint32_t now = ARM_DWT_CYCCNT;
 		if (0 != USB_sof_timer) // not freshly booted
@@ -252,7 +251,11 @@ static void update_sof_timer(uint32_t status)
 		else
 			USB_sof_timer = (uint32_t) ((long long) F_CPU_ACTUAL * USB_SOF_TIMER_COUNT / 1000);
         lastISR = now;
-        count = 0;
+		
+		// re-start count, need 8x as many SOFs if we're high-speed
+        count = USB_SOF_TIMER_COUNT;
+		if (1 == usb_high_speed)
+			count <<= 3;
       }
     }	
 }
