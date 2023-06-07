@@ -622,7 +622,9 @@ static uint8_t flightsim_report_desc[] = {
 
 #define AUDIO_INTERFACE_DESC_POS	KEYMEDIA_INTERFACE_DESC_POS+KEYMEDIA_INTERFACE_DESC_SIZE
 #ifdef  AUDIO_INTERFACE
-#define AUDIO_INTERFACE_DESC_SIZE	8 + 9+10+12+9+12+(8+AUDIO_CHANNELS*AUDIO_CONTROL_SIZE)+9 + 9+9+7+11+9+7 + 9+9+7+11+9+7+9
+//#define AUDIO_INTERFACE_DESC_SIZE	8 + 9+10+12+9+12+(8+AUDIO_CHANNELS*AUDIO_CONTROL_SIZE)+9 + 9+9+7+11+9+7 + 9+9+7+11+9+7+9
+#define AUDIO_INTERFACE_DESCRIPTOR_TOTAL_LENGTH (10+12+9+12+(8+AUDIO_CHANNELS*AUDIO_CONTROL_SIZE)+9)
+#define AUDIO_INTERFACE_DESC_SIZE	8+9 + AUDIO_INTERFACE_DESCRIPTOR_TOTAL_LENGTH + 9+9+7+11+9+7 + 9+9+7+11+9+7 + 9
 #else
 #define AUDIO_INTERFACE_DESC_SIZE	0
 #endif
@@ -1421,7 +1423,9 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       0x24,                 // bDescriptorType, 0x24 = CS_INTERFACE
       0x01,                 // bDescriptorSubtype, 1 = HEADER
       0x00, 0x01,           // bcdADC (USB Audio Class v1.0)
-      LSB(62), MSB(62),     // wTotalLength
+//      LSB(62), MSB(62),     // wTotalLength
+      LSB(AUDIO_INTERFACE_DESCRIPTOR_TOTAL_LENGTH),     // wTotalLength
+	    MSB(AUDIO_INTERFACE_DESCRIPTOR_TOTAL_LENGTH),
       2,                    // bInCollection
       AUDIO_INTERFACE+1,    // baInterfaceNr(1) - Transmit to PC
       AUDIO_INTERFACE+2,    // baInterfaceNr(2) - Receive from PC
@@ -1660,6 +1664,25 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       0x00,                             // bLockDelayUnits, 0 = undefined, 1 = ms
       0x00, 0x00,                       // wLockDelay
 
+/*
+From https://groups.google.com/g/audio-widget/c/COAfYP2BCzw
+Thanks to this article, I was finally able to read the Windows driver log. After analyzing it, 
+I can report that Windows 10 UAC2 driver usbaudio2.sys 10.0.17763.1 Dec 15 2018 has the following requirements:
+Valid feedback format
+16.16 if bInterval of Async OUT endpoint = 1 (FS/HS)
+17.13 if bInterval of Async OUT endpoint = 2 (HS)
+Valid feedback interval
+44100 Hz - 0x000B0000, 0x000C0000
+48000 Hz - 0x000B0000, 0x000D0000
+88200 Hz - 0x00160000, 0x00170000
+96000 Hz - 0x00170000, 0x00190000
+176400 Hz - 0x002C0000, 0x002D0000
+192000 Hz - 0x002F0000, 0x00310000
+The Linux driver is more flexible, so for a universal firmware, Windows requirements are decisive.
+
+JRO note 2023-06-08: this appears slightly wrong - the "valid intervals" are only for USB 1.0
+*/
+
       // Standard AS Isochronous Audio Synch Endpoint Descriptor
       // USB DCD for Audio Devices 1.0, Section 4.6.2.1, Table 4-22, page 63-64
       9,                                        // bLength
@@ -1667,8 +1690,8 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
       AUDIO_SYNC_ENDPOINT | AUDIO_EP_IN_MASK,   // bEndpointAddress
       0x11,                                     // bmAttributes = isochronous, feedback
       0x04, 0x00,                               // wMaxPacketSize, 4 bytes
-      AUDIO_SYNC_INTERVAL,                   	// bInterval, 4 = 2^4 = 8 microframes = 1ms
-      0x07,                                     // bRefresh, rate of feedback, as power of 2
+      AUDIO_SYNC_INTERVAL,                   	// bInterval, 4 = 2^(4-1) = 8 microframes = 1ms
+      0x05,                                     // bRefresh, rate of feedback, as power of 2
       // TODO(jake): what bRefresh feedback rate do we want here?
       0x00,                                     // bSynchAddress
 #endif
@@ -2495,7 +2518,9 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
       0x24,                            // bDescriptorType, 0x24 = CS_INTERFACE
       0x01,                            // bDescriptorSubtype, 1 = HEADER
       0x00, 0x01,                      // bcdADC (version 1.0)
-      LSB(62), MSB(62),                // wTotalLength
+//      LSB(62), MSB(62),                // wTotalLength
+      LSB(AUDIO_INTERFACE_DESCRIPTOR_TOTAL_LENGTH),     // wTotalLength
+	    MSB(AUDIO_INTERFACE_DESCRIPTOR_TOTAL_LENGTH),
       2,                               // bInCollection
       AUDIO_INTERFACE+1,               // baInterfaceNr(1) - Transmit to PC
       AUDIO_INTERFACE+2,               // baInterfaceNr(2) - Receive from PC

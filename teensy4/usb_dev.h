@@ -35,6 +35,9 @@ uint32_t usb_transfer_status(const transfer_t *transfer);
 void usb_start_sof_interrupts(int interface);
 void usb_stop_sof_interrupts(int interface);
 
+#define USB_SOF_TIMER_COUNT 1000
+uint32_t get_USB_SOF_timer(void);
+
 extern void (*usb_timer0_callback)(void);
 extern void (*usb_timer1_callback)(void);
 

@@ -46,6 +46,7 @@ uint16_t AudioStream::cpu_cycles_total = 0;
 uint16_t AudioStream::cpu_cycles_total_max = 0;
 uint16_t AudioStream::memory_used = 0;
 uint16_t AudioStream::memory_used_max = 0;
+uint32_t AudioStream::audio_update_timer = 0;
 AudioConnection* AudioStream::unused = NULL; // linked list of unused but not destructed connections
 
 void software_isr(void);
@@ -425,6 +426,23 @@ bool AudioStream::update_setup(void)
 	NVIC_ENABLE_IRQ(IRQ_SOFTWARE);
 	update_scheduled = true;
 	return true;
+}
+
+
+void AudioStream::update_all(void) 
+{ 
+	static uint32_t lastUpd;
+	static int count;
+	count++;
+	if (count > AUDIO_UPDATE_TIMER_COUNT-1)
+	{
+	uint32_t now = ARM_DWT_CYCCNT;
+	audio_update_timer = now - lastUpd;
+	lastUpd = now;
+	count = 0;
+	}
+	
+	NVIC_SET_PENDING(IRQ_SOFTWARE); 
 }
 
 void AudioStream::update_stop(void)

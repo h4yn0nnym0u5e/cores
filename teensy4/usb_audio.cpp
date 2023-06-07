@@ -63,44 +63,25 @@ uint8_t usb_audio_transmit_setting=0;
 uint8_t usb_audio_sync_nbytes;
 uint8_t usb_audio_sync_rshift;
 
-#define SINK_DATARATE_BUF_SIZE 2
-volatile int16_t sink_datarate_buf[SINK_DATARATE_BUF_SIZE] = {0};
-volatile uint32_t sink_datarate_idx;
-uint32_t report_sink_offset(int16_t new_rate) {
-	sink_datarate_buf[sink_datarate_idx++ % SINK_DATARATE_BUF_SIZE] = new_rate;
-	return 0;
-}
-float get_sink_pressure() {
-	//char c[100];
-	if (sink_datarate_idx < SINK_DATARATE_BUF_SIZE) {
-		return 0.0f;
-	}
-
-	float avg = 0.0f;
-	for (uint16_t i=0; i < SINK_DATARATE_BUF_SIZE; i++) {
-		avg += (float)sink_datarate_buf[i] / (float)SINK_DATARATE_BUF_SIZE;
-	}
-
-	return avg;
-}
 
 // In the USB documentation:
 // Fs: The *actual* sample rate currently witnessed, as measured relative to the USB (micro)frames SOF.
 //     so, for Full-Speed that would be every 1ms, and for High-Speed every 125us (8x faster).
 // Ff: The *desired* data rate to achieve a target sample rate.
 //
-// In this case, the feedback accumulator is updated based on how quickly samples are consumed down the
-// audio chain (for example, by an I2S output), which is why it's modified in the "update" function,
-// and read in the sync_even function.
+// This is now implemented by counting SOF events and audio updates as accurately as possible,
+// i.e. immediately they are apparent. We can them compute the sample rate offered by the Teensy,
+// as it appears to the PC, and feed that back.
 volatile uint32_t feedback_accumulator;
-
-// A flag to mark the initial buffer has been filled enough once USB data has started
-// to consider any underflows *actual* underflows.
-volatile uint8_t buffer_floodgate_open = 0;
 
 volatile uint32_t usb_audio_underrun_count = 0, usb_audio_overrun_count = 0;
 volatile uint32_t sync_counter = 0, callback_counter = 0;
 
+extern uint8_t s7ready;
+#define S7OUT(x) if (s7ready) Serial7.print(x)
+#undef S7OUT	
+#define S7OUT(...)
+	
 static void rx_event(transfer_t *t)
 {
 	if (t) {
@@ -113,16 +94,41 @@ static void rx_event(transfer_t *t)
 	usb_receive(AUDIO_RX_ENDPOINT, &rx_transfer);
 }
 
-//extern void my_USB_sync_callback(uint32_t );
+void my_USB_sync_callback(uint32_t,bool,uint32_t) __attribute__ ((weak));
+void my_USB_sync_callback(uint32_t,bool,uint32_t) {}
+static bool out_of_sync;
+extern void my_USB_sync_callback(uint32_t,bool,uint32_t);
 
 static void sync_event(transfer_t *t)
 {
 	sync_counter++;
-	
-//my_USB_sync_callback(feedback_accumulator);
-	
+		
 	// USB 2.0 Specification, 5.12.4.2 Feedback, pages 73-75
+	//
+	// The feedback accumulator keeps track of how many samples have been seen
+	// based on the USB Host's clock, which for USB FS triggers every 1ms, and for
+	// USB HS triggers 8 times per 1ms (every 125us).
+	//
+	// We're multiplying by 2^24 here as a convenience for formatting the response
+	// to the host, which expects:
+	//   if Full-Speed ( 12Mbps): An unsigned 10.10 fixed point binary, aligned as a 3-byte 10.14.
+	//   if High-Speed (480Mbps): An unsigned 10.14 fixed point binary, aligned as a 4-byte 16.16.
+	// and shifting down a dynamic number of bytes to match that format.
+	
+	// compute actual rate we can consume, in samples per second, referred to 
+	// the PC's nominal 1000 frames/s generating SOF events:
+	float apparent_rate = (float) (AUDIO_BLOCK_SAMPLES * AUDIO_UPDATE_TIMER_COUNT) 
+						/ AudioStream::get_audio_update_timer()
+						* (AudioInputUSB::get_SOF_timer() / 1000.0f * USB_SOF_TIMER_COUNT);
+						
+	// sanity check: can take a few seconds to lock on. 10% margin OK?
+	if ((apparent_rate <= AUDIO_SAMPLE_RATE_EXACT * 1.1f)
+	 && (apparent_rate >= AUDIO_SAMPLE_RATE_EXACT * 0.9f))
+		feedback_accumulator = (apparent_rate / 1000.0f) * (1<<24);
+		
 	usb_audio_sync_feedback = feedback_accumulator >> usb_audio_sync_rshift;
+my_USB_sync_callback(feedback_accumulator,out_of_sync,usb_audio_sync_feedback);
+out_of_sync = false;
 	usb_prepare_transfer(&sync_transfer, &usb_audio_sync_feedback, usb_audio_sync_nbytes, 0);
 	arm_dcache_flush(&usb_audio_sync_feedback, usb_audio_sync_nbytes);
 	usb_transmit(AUDIO_SYNC_ENDPOINT, &sync_transfer);
@@ -131,20 +137,11 @@ static void sync_event(transfer_t *t)
 void usb_audio_configure(void)
 {
 	printf("usb_audio_configure\n");
-	buffer_floodgate_open = 0;
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
 
-	// The feedback accumulator keeps track of how many samples have been seen
-	// based on the USB Host's clock, which for USB FS triggers every 1ms, and for
-	// USB HS triggers 8 times per 1ms (every 125us).
-	//
-	// We're multiplying by 2^24 here as a convenience for formatting the response
-	// to the host, which expects:
-	//   if High-Speed (480Mbps): An unsigned 10.10 fixed point binary, aligned as a 3-byte 10.14.
-	//   if Full-Speed ( 12Mbps): An unsigned 10.14 fixed point binary, aligned as a 4-byte 16.16.
-	// and shifting down a dynamic number of bytes to match that format.
-	feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
+
+	feedback_accumulator = ((AUDIO_SAMPLE_RATE_EXACT+10) / 1000.0f) * 0x1000000; // samples/millisecond * 2^24
 	// USB 2.0 High-Speed uses a 4-byte feedback format,
 	// where Full Speed uses a 3-byte format.
 	if (usb_high_speed) {
@@ -193,12 +190,14 @@ static void copy_to_buffers(const uint32_t *src, audio_block_t *chans[AUDIO_CHAN
 	}
 }
 
+
 // Called from the USB interrupt when an isochronous packet arrives
 // we must completely remove it from the receive buffer before returning
 //
 #if 1
 void usb_audio_receive_callback(unsigned int len)
 {
+digitalWriteFast(30,1);	
 	unsigned int count, avail;
 	audio_block_t *chans[AUDIO_CHANNELS];
 	//const uint16_t *data;
@@ -229,14 +228,14 @@ void usb_audio_receive_callback(unsigned int len)
 			AudioInputUSB::incoming[i] = chans[i];
 		}
 	}
-	while (len > 0) {
+	
+	while (len > 0) 
+	{
 		avail = AUDIO_BLOCK_SAMPLES - count;
 		if (len < avail) {
 			// We can fit the entire incoming buffer in one AudioStream block,
 			// so we simply copy the whole thing in.
-			CORE_PIN6_PORTSET = CORE_PIN6_BITMASK;
 			copy_to_buffers(data_orig, chans, count, len);
-			CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 			AudioInputUSB::incoming_count = count + len;
 			goto cleanup;
 		} else if (avail > 0) {
@@ -245,9 +244,7 @@ void usb_audio_receive_callback(unsigned int len)
 			//
 			// We'll need to finish consuming the data after that, though,
 			// which is why this looks complicated.
-			CORE_PIN6_PORTSET = CORE_PIN6_BITMASK;
 			copy_to_buffers(data_orig, chans, count, avail);
-			CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
 			data_orig += avail * AUDIO_CHANNELS / AUDIO_SAMPLE_BYTES;
 			len -= avail;
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
@@ -260,20 +257,18 @@ void usb_audio_receive_callback(unsigned int len)
 						// If there were remaining bytes of audio, they will
 						// be dropped because there is nowhere to put them.
 						usb_audio_overrun_count++;
-						char c[20];
-						float accumulator = (float)(feedback_accumulator >> 8) / (float)(1<<16);
-						snprintf(c, 20, "%.6f", accumulator);
-						printf("^ OVERRUN, accumulator: %skHz, len: %d, i: %d\n", c, len, i);
-						//serial_phex(len);
+S7OUT('o');	
+for (int i=0;i<AUDIO_CHANNELS;i++) { if (AudioInputUSB::ready[i]) AudioInputUSB::ready[i]->data[0] = AudioInputUSB::ready[i]->data[0]>0?-32000:+32000;} // deliberate click
+out_of_sync = true;
 					}
 					goto cleanup;
 				}
 			}
-			send:
+	send:
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				AudioInputUSB::ready[i] = chans[i];
 			}
-			buffer_floodgate_open = 1;
+
 			for (int i = 0; i < AUDIO_CHANNELS; i++) {
 				chans[i] = AudioStream::allocate();
 				if (chans[i] == NULL) {
@@ -302,13 +297,14 @@ void usb_audio_receive_callback(unsigned int len)
 	}
 	AudioInputUSB::incoming_count = count;
 	cleanup:
-	CORE_PIN6_PORTCLEAR = CORE_PIN6_BITMASK;
+		;
+digitalWriteFast(30,0);	
 }
 #endif
 
 void AudioInputUSB::update(void)
 {
-	CORE_PIN5_PORTSET = CORE_PIN5_BITMASK;
+digitalWriteFast(31,1);	
 	// printf("AudioInputUSB::update\n");
 	audio_block_t *chans[AUDIO_CHANNELS];
 
@@ -318,50 +314,16 @@ void AudioInputUSB::update(void)
 		chans[i] = ready[i];
 		ready[i] = NULL;
 	}
-	//uint16_t c = incoming_count;
-	uint8_t f = receive_flag;
+	
 	receive_flag = 0;
 	__enable_irq();
-	if (f && usb_audio_receive_setting) {
-		// Did we receive more or less than half 
 
-		// The amount "off from target" that we are.
-		// diff < 0   Receiving more samples than our downstream is consuming, risk of overrun.
-		//            We must request a lower Ff (desired data rate).
-		// diff > 0   Receiving fewer samples than our downstream is consuming, risk of underrun.
-		//            Must request a higher Ff (desired data rate).
-		//int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
-
-		//report_sink_offset(diff);
-		//float pressure = get_sink_pressure();
-
-		// snprintf(c, 99, "avg: %.6f, [%d, %d, %d, %d]", pressure,
-		// 	sink_datarate_buf[0], sink_datarate_buf[1], sink_datarate_buf[2], sink_datarate_buf[3]);
-		// printf("%s\n", c);
-
-		//float pressure_multiplier = 1.0f + (pressure / (AUDIO_BLOCK_SAMPLES / 2) / 10000);
-		// if (pressure_multiplier > 1.2f || pressure_multiplier < 0.8f) {
-		// 	char c[100];
-		// 	snprintf(c, 99, "pressure: %.5f, mult: %.5f",
-		// 		pressure, pressure_multiplier);
-		// 	printf("%s\n", c);
-		// }
-		//feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT * pressure_multiplier / 1000.0f) * 0x1000000;
-		//feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000;
-		//feedback_accumulator += diff * 100;
-	} else if (!usb_audio_receive_setting) {
-		feedback_accumulator = (AUDIO_SAMPLE_RATE_EXACT / 1000.0f) * 0x1000000;
-	}
-	//serial_phex(c);
-	//serial_print(".");
-	if (usb_audio_receive_setting && buffer_floodgate_open) {
+	if (usb_audio_receive_setting) {
 	for (int i = 0; i < AUDIO_CHANNELS; i++) {
 		if (!chans[i]) {
+S7OUT('u');						
+out_of_sync = true;
 			usb_audio_underrun_count++;
-				char c[20];
-				float accumulator = (float)(feedback_accumulator >> 8) / (float)(1<<16);
-				snprintf(c, 20, "%.6f", accumulator);
-				printf("v UNDERRUN, accumulator: %skHz, i: %d, receive? %d\n", c, i, usb_audio_receive_setting); // buffer underrun - PC sending too slow
 			break;
 		}
 	}
@@ -372,10 +334,7 @@ void AudioInputUSB::update(void)
 			release(chans[i]);
 		}
 	}
-	// if (!usb_audio_receive_setting) {
-	// 	buffer_floodgate_open = 0;
-	// 	}
-	CORE_PIN5_PORTCLEAR = CORE_PIN5_BITMASK;
+digitalWriteFast(31,0);	
 }
 
 
@@ -399,9 +358,6 @@ static void tx_event(transfer_t *t)
 {
 	int len = usb_audio_transmit_callback();
 	
-//my_USB_tx_callback(len,USB_tx_provided);
-
-	usb_audio_sync_feedback = feedback_accumulator >> usb_audio_sync_rshift;
 	usb_prepare_transfer(&tx_transfer, usb_audio_transmit_buffer, len, 0);
 	arm_dcache_flush_delete(usb_audio_transmit_buffer, len);
 	usb_transmit(AUDIO_TX_ENDPOINT, &tx_transfer);
@@ -440,8 +396,7 @@ static void copy_from_buffers(uint32_t *dst, int16_t *left, int16_t *right, unsi
  * to them. The USB transmit callback will then copy them to the transmit buffer
  * and release them at some point in the future.
  */
-//extern uint8_t s7ready;
-//#define S7OUT(x) if (s7ready) Serial7.print(x)
+#undef S7OUT	
 #define S7OUT(...)
 
 void AudioOutputUSB::update(void)
@@ -577,8 +532,8 @@ unsigned int usb_audio_transmit_callback(void)
 	// how many have we got available?
 	avail = AUDIO_BLOCK_SAMPLES - AudioOutputUSB::offset_1st 
 		  + ((nullptr == AudioOutputUSB::ready[0])?0:AUDIO_BLOCK_SAMPLES);
-//	if (avail <= AudioOutputUSB::low_water) // risk of underflow
-//		target--; // need to transmit an extra sample this time
+	if (avail <= AudioOutputUSB::low_water) // risk of underflow
+		target--; // need to transmit one fewer sample this time
 		
 	if (avail >= AudioOutputUSB::high_water) // risk of overflow
 		target++; // need to transmit an extra sample this time

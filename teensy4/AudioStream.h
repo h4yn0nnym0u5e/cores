@@ -58,6 +58,7 @@
 #endif
 
 #define AUDIO_SAMPLE_RATE AUDIO_SAMPLE_RATE_EXACT
+#define AUDIO_UPDATE_TIMER_COUNT 100
 
 #if !defined(__ASSEMBLER__)
 typedef struct audio_block_struct {
@@ -155,6 +156,7 @@ public:
 	static uint16_t cpu_cycles_total_max;
 	static uint16_t memory_used;
 	static uint16_t memory_used_max;
+	static uint32_t get_audio_update_timer(void) { return audio_update_timer; }
 protected:
 	bool active;
 	unsigned char num_inputs;
@@ -165,7 +167,7 @@ protected:
 	audio_block_t * receiveWritable(unsigned int index = 0);
 	static bool update_setup(void);
 	static void update_stop(void);
-	static void update_all(void) { NVIC_SET_PENDING(IRQ_SOFTWARE); }
+	static void update_all(void); 
 	friend void software_isr(void);
 	friend class AudioConnection;
 #if defined(AUDIO_DEBUG_CLASS)
@@ -183,6 +185,7 @@ private:
 	static audio_block_t *memory_pool;
 	static uint32_t memory_pool_available_mask[];
 	static uint16_t memory_pool_first_mask;
+	static uint32_t audio_update_timer;
 };
 
 #if defined(AUDIO_DEBUG_CLASS)

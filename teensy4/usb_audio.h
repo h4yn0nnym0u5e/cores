@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "usb_desc.h"
+#include "usb_desc.h" // find out how many audio channels are configured
 #ifdef AUDIO_INTERFACE
 
 #define FEATURE_MAX_VOLUME 0xFF  // volume accepted from 0 to 0xFF
@@ -38,6 +38,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+extern uint32_t get_USB_SOF_timer(void);
 extern void usb_audio_configure();
 extern uint16_t usb_audio_receive_buffer[];
 extern uint16_t usb_audio_transmit_buffer[];
@@ -79,6 +80,7 @@ public:
 	}
 	static float volume(void) { return volume(1); }
 	static bool isMuted(void) { return features.mute != 0; }
+	static uint32_t get_SOF_timer(void) { return get_USB_SOF_timer(); }
 private:
 	static bool update_responsibility;
 	static audio_block_t *incoming[AUDIO_CHANNELS];

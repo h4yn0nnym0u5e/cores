@@ -231,7 +231,35 @@ FLASHMEM void _reboot_Teensyduino_(void)
 	__builtin_unreachable();
 }
 
+//==================================================================
+static uint32_t USB_sof_timer;
+/**
+ * Update a "timer" showing how often SOF events are occurring.
+ */
+static void update_sof_timer(uint32_t status)
+{
+    static uint32_t lastISR;
+    static int count;
+	
+    if (status & USB_USBSTS_SRI)
+    {
+      count++;
+      if (count > USB_SOF_TIMER_COUNT-1)
+      {
+        uint32_t now = ARM_DWT_CYCCNT;
+		if (0 != USB_sof_timer) // not freshly booted
+			USB_sof_timer = now - lastISR;
+		else
+			USB_sof_timer = (uint32_t) ((long long) F_CPU_ACTUAL * USB_SOF_TIMER_COUNT / 1000);
+        lastISR = now;
+        count = 0;
+      }
+    }	
+}
 
+uint32_t get_USB_SOF_timer(void) { return USB_sof_timer; }
+	
+//==================================================================
 void usb_isr(void)
 {
 	//printf("*");
@@ -240,6 +268,8 @@ void usb_isr(void)
 	//  status port reset, suspend, and current connect status.
 	uint32_t status = USB1_USBSTS;
 	USB1_USBSTS = status;
+	
+	update_sof_timer(status);
 
 	// USB_USBSTS_SLI - set to 1 when enters a suspend state from an active state
 	// USB_USBSTS_SRI - set at start of frame
