@@ -31,11 +31,63 @@
 #ifndef AudioStream_h
 #define AudioStream_h
 
-#ifndef __ASSEMBLER__
+// Debugging capabilities:
+#define noDYNAMIC_AUDIO_DEBUG
+#define SCOPE_PIN 25
+#define noSCOPE_SERIAL Serial1
+
+#if !defined(__ASSEMBLER__)
 #include <stdio.h>  // for NULL
 #include <string.h> // for memcpy
 
-#endif
+
+#if defined(DYNAMIC_AUDIO_DEBUG)
+#define dbgPrintClanEntry(...) 	printClanEntry(__VA_ARGS__)
+#define dbgPrintAclan(...)		printAclan(__VA_ARGS__)
+#define dbgPrintClanList(...)	printClanList(__VA_ARGS__)
+#undef SPRT
+#undef SPRL
+#undef SFSH
+#define SPTF(...) Serial.printf(__VA_ARGS__) 
+#define SPRT(...) Serial.print(__VA_ARGS__) 
+#define SPRL(...) Serial.println(__VA_ARGS__) 
+#define SFSH(...) Serial.flush(__VA_ARGS__) 
+#else
+#define dbgPrintClanEntry(...)
+#define dbgPrintAclan(...)
+#define dbgPrintClanList(...)
+#define SPTF(...) 
+#define SPRT(...) 
+#define SPRL(...) 
+#define SFSH(...) 
+#endif // DYNAMIC_AUDIO_DEBUG
+
+#if defined(SCOPE_PIN)
+extern bool scope_pin_value;
+#define SCOPE_ENABLE() pinMode(SCOPE_PIN,OUTPUT)
+#define SCOPE_HIGH() digitalWrite(SCOPE_PIN,scope_pin_value = 1)
+#define SCOPE_LOW() digitalWrite(SCOPE_PIN,scope_pin_value = 0)
+#define SCOPE_TOGGLE() digitalWrite(SCOPE_PIN,scope_pin_value = !scope_pin_value)
+#else
+#define SCOPE_ENABLE(...) 
+#define SCOPE_HIGH(...) 
+#define SCOPE_LOW(...) 
+#define SCOPE_TOGGLE(...) 
+#endif // defined(SCOPE_PIN)
+
+#if defined(SCOPE_SERIAL)
+#if !defined(SCOPESER_SPEED)
+#define SCOPESER_SPEED
+#endif // !defined(SCOPESER_SPEED)
+#define SCOPESER_ENABLE() SCOPE_SERIAL.begin(SCOPESER_SPEED)
+#define SCOPESER_TX(x) SCOPE_SERIAL.write(x)
+#else
+#define SCOPESER_ENABLE(...) 
+#define SCOPESER_TX(...) 
+#endif // defined(SCOPE_SERIAL)
+
+#endif // !defined(__ASSEMBLER__)
+
 
 // AUDIO_BLOCK_SAMPLES determines how many samples the audio library processes
 // per update.  It may be reduced to achieve lower latency response to events,
@@ -60,14 +112,22 @@
 
 #define AUDIO_SAMPLE_RATE AUDIO_SAMPLE_RATE_EXACT
 
-#define noAUDIO_DEBUG_CLASS // disable this class by default
+// Macro to do a safe release of audio block(s), without the risk of
+// an audio interrupt occurring between copying the pointers and the
+// block release occurring. 
+//
+// By setting active=false, even if an audio interrupt does occur after
+// the blocks have been released, the dying object will NOT update()
+// and thus won't allocate any more blocks after SAFE_RELEASE has executed
+#define SAFE_RELEASE(...) __disable_irq(); active = false; release(__VA_ARGS__,false)
+#define SAFE_RELEASE_MANY(n,...) __disable_irq(); active = false; {audio_block_t* blx[]={__VA_ARGS__}; release(blx,n,false);}
+#define SAFE_RELEASE_INPUTS() __disable_irq(); active = false; releaseInputQueue(false)
+#define OFFSET_OF(t,m) ((int)(&(((t*)0)->m)))
 
-#ifndef __ASSEMBLER__
+#if defined(__cplusplus)
 class AudioStream;
 class AudioConnection;
-#if defined(AUDIO_DEBUG_CLASS)
-class AudioDebug;  // for testing only, never for public release
-#endif // defined(AUDIO_DEBUG_CLASS)
+class AudioDebug;
 
 typedef struct audio_block_struct {
 	uint8_t  ref_count;
@@ -82,14 +142,12 @@ class AudioConnection
 {
 public:
 	AudioConnection();
-	AudioConnection(AudioStream &source, AudioStream &destination)
-		: AudioConnection() { connect(source,destination); }
+	AudioConnection(AudioStream &source, AudioStream &destination);
 	AudioConnection(AudioStream &source, unsigned char sourceOutput,
-		AudioStream &destination, unsigned char destinationInput)
-		: AudioConnection() { connect(source,sourceOutput, destination,destinationInput); }
+		AudioStream &destination, unsigned char destinationInput);
 	friend class AudioStream;
 	~AudioConnection(); 
-	int disconnect(void);
+	int disconnect(bool inputQueueValid = true);
 	int connect(void);
 	int connect(AudioStream &source, AudioStream &destination) {return connect(source,0,destination,0);};
 	int connect(AudioStream &source, unsigned char sourceOutput,
@@ -101,9 +159,9 @@ protected:
 	unsigned char dest_index;
 	AudioConnection *next_dest; // linked list of connections from one source
 	bool isConnected;
-#if defined(AUDIO_DEBUG_CLASS)
+	friend void NULLifConnected(AudioStream* strm,AudioConnection** ppC);
+	friend void unlinkFromUpdateList();
 	friend class AudioDebug;
-#endif // defined(AUDIO_DEBUG_CLASS)
 };
 
 
@@ -125,71 +183,122 @@ class AudioStream
 {
 public:
 	AudioStream(unsigned char ninput, audio_block_t **iqueue) :
-		num_inputs(ninput), inputQueue(iqueue) {
-			active = false;
-			destination_list = NULL;
-			for (int i=0; i < num_inputs; i++) {
-				inputQueue[i] = NULL;
+		num_inputs(ninput), inputQueue(iqueue) 
+		{
+			if (!serialStarted)
+			{
+#if defined(DYNAMIC_AUDIO_DEBUG)
+				Serial.begin(115200);
+				while (!Serial)
+					;
+				if (CrashReport) {
+					Serial.println(CrashReport);
+					CrashReport.clear();
+				}
+#endif // defined(DYNAMIC_AUDIO_DEBUG)
+				serialStarted = true;
+			}
+			// at construction time we...
+			active = false;				// ...are inactive
+			destination_list = NULL;	// ...have no destinations...
+			clan_head = this;
+			next_clan = first_clan;		// ...are in a new clan...
+			first_clan = this;
+			next_update = NULL;			// ...with only us in it
+			
+			if (NULL == inputQueue)		// could be a failed malloc()
+				num_inputs = 0;			// prevent use of queues
+			else
+			{
+				for (int i=0; i < num_inputs; i++) 
+					inputQueue[i] = NULL;
 			}
 			// add to a simple list, for update_all
 			// TODO: replace with a proper data flow analysis in update_all
-			if (first_update == NULL) {
-				first_update = this;
-			} else {
-				AudioStream *p;
-				for (p=first_update; p->next_update; p = p->next_update) ;
-				p->next_update = this;
-			}
-			next_update = NULL;
+
 			cpu_cycles = 0;
 			cpu_cycles_max = 0;
 			numConnections = 0;
 		}
+	virtual ~AudioStream();
 	static void initialize_memory(audio_block_t *data, unsigned int num);
+	void NULLifConnected(AudioConnection** ppC);
 	float processorUsage(void) { return CYCLE_COUNTER_APPROX_PERCENT(cpu_cycles); }
 	float processorUsageMax(void) { return CYCLE_COUNTER_APPROX_PERCENT(cpu_cycles_max); }
 	void processorUsageMaxReset(void) { cpu_cycles_max = cpu_cycles; }
 	bool isActive(void) { return active; }
+	bool isClanActive(void) { return clan_head->clanActive; }
+	bool areAllClansActive(void) { return allClansActive; }
+	void setClanActive(bool state) { clan_head->clanActive = state; }	
+	static void setAllClansActive(bool state) { allClansActive = state; }	
 	uint16_t cpu_cycles;
 	uint16_t cpu_cycles_max;
 	static uint16_t cpu_cycles_total;
 	static uint16_t cpu_cycles_total_max;
 	static uint16_t memory_used;
 	static uint16_t memory_used_max;
+	static audio_block_t silentBlock;	// lots of objects use this - let's provide one
 protected:
+	static bool serialStarted;
 	bool active;
+	bool clanActive;
+	static bool allClansActive;
 	unsigned char num_inputs;
 	static audio_block_t * allocate(void);
-	static void release(audio_block_t * block);
+	static void release(audio_block_t * block, bool enableIRQ = true);
+	static void release(audio_block_t** blocks, int numBlocks, bool enableIRQ = true);
+	void releaseInputQueue(bool enableIRQ = true);
 	void transmit(audio_block_t *block, unsigned char index = 0);
 	audio_block_t * receiveReadOnly(unsigned int index = 0);
 	audio_block_t * receiveWritable(unsigned int index = 0);
-	static bool update_setup(void);
+	bool update_setup(void);
 	static void update_stop(void);
 	static void update_all(void) { NVIC_SET_PENDING(IRQ_SOFTWARE); }
+	void destructorDisableNVIC(void) {destructorDisabledNVIC = true; NVIC_DISABLE_IRQ(IRQ_SOFTWARE);}
 	friend void software_isr(void);
 	friend class AudioConnection;
-#if defined(AUDIO_DEBUG_CLASS)
 	friend class AudioDebug;
-#endif // defined(AUDIO_DEBUG_CLASS)
 	uint8_t numConnections;
 private:
+	bool destructorDisabledNVIC;
 	static AudioConnection* unused; // linked list of unused but not destructed connections
 	AudioConnection *destination_list;
 	audio_block_t **inputQueue;
-	static bool update_scheduled;
+	static AudioStream* update_owner;
+	inline void updateOne(void);
 	virtual void update(void) = 0;
+	void linkIntoUpdateList(const AudioConnection* pC);
+	
+	
+	// Update list: AudioStream objects on this list are examined during every audio
+	// interrupt, and if active the update code is called
 	static AudioStream *first_update; // for update_all
 	AudioStream *next_update; // for update_all
+	AudioStream* updateListMergeInto(AudioStream** ppAfter,AudioStream* newHead,AudioStream* pItem);
+	AudioStream* updateListUnlinkFrom(AudioStream** ppAfter,AudioStream** ppItemNext);
+	AudioStream* updateTailItem(AudioStream* pItem) {while (NULL != pItem && NULL != pItem->next_update) pItem=pItem->next_update; return pItem;}
+	void unlinkFromActiveUpdateList(bool fromDestructor = false);
+	
+	// Clan list: AudioStream objects on this list are NOT yet on the update list,
+	// because no connection has yet been made which allows us to determine where
+	// they should be in that list.
+	//
+	// Within a clan the next_update links are used to create an ordering based on
+	// connections between clan members. If a clan object is its own head, and
+	// has a NULL next_update, then it is an orphan (only member of its clan)
+	static AudioStream *first_clan; // first object with no place in the update list
+	AudioStream *next_clan; 		// next clan
+	AudioStream *clan_head; 		// first object in this object's clan list	
+	AudioStream* clanListUnlink(AudioStream* pItem); // unlink whole clan from clan list
+	AudioStream* clanListLinkIn(AudioStream* pItem); // link whole clan into clan list
+	void unlinkItemFromClanUpdateList(); // remove single AudioStream object from clan
+	
 	static audio_block_t *memory_pool;
+	static unsigned int num_blocks_in_pool;
 	static uint32_t memory_pool_available_mask[];
 	static uint16_t memory_pool_first_mask;
 };
 
-#if defined(AUDIO_DEBUG_CLASS)
-// This class aids debugging of the internal functionality of the
-// AudioStream and AudioConnection classes, but is NOT intended
-// for general users of the Audio library.
 class AudioDebug
 {
 	public:
@@ -205,15 +314,18 @@ class AudioDebug
 		// info on streams
 		AudioConnection* dstList(AudioStream& s) { return s.destination_list;};
 		audio_block_t ** inqList(AudioStream& s) { return s.inputQueue;};
-		uint8_t 	 	 getNumInputs(AudioStream& s) { return s.num_inputs;};
-		AudioStream*     firstUpdate(AudioStream& s) { return s.first_update;};
-		AudioStream* 	 nextUpdate(AudioStream& s) { return s.next_update;};
-		uint8_t 	 	 getNumConnections(AudioStream& s) { return s.numConnections;};
-		bool 	 	 	 isActive(AudioStream& s) { return s.active;};
-		 
+		uint8_t 	 	 getNumInputs(AudioStream& s) { return s.num_inputs;}
+		AudioStream*     firstUpdate(AudioStream& s) { return s.first_update;}
+		AudioStream* 	 nextUpdate(AudioStream& s) { return s.next_update;}
+		AudioStream*     firstClan(AudioStream& s) { return s.first_clan;}
+		AudioStream**    pFirstClan(AudioStream& s) { return &s.first_clan;}
+		AudioStream* 	 nextClan(AudioStream& s) { return s.next_clan;}
+		AudioStream* 	 clanHead(AudioStream& s) { return s.clan_head;}
+		uint8_t 	 	 getNumConnections(AudioStream& s) { return s.numConnections;}
+		bool 	 	 	 isActive(AudioStream& s) { return s.active;}
+		bool 	 	 	 isUpdateOwner(AudioStream& s) { return &s == s.update_owner;}
+		void 			 zapClans() { AudioStream::first_clan = NULL;}
 		
 };
-#endif // defined(AUDIO_DEBUG_CLASS)
-
 #endif // __ASSEMBLER__
 #endif // AudioStream_h
