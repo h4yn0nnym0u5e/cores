@@ -34,8 +34,9 @@
 #ifndef __ASSEMBLER__
 #include <stdio.h>  // for NULL
 #include <string.h> // for memcpy
-
 #endif
+
+#include "AudioData.h"
 
 // AUDIO_BLOCK_SAMPLES determines how many samples the audio library processes
 // per update.  It may be reduced to achieve lower latency response to events,
@@ -50,15 +51,6 @@
 //   AudioInputUSB, AudioOutputUSB, AudioPlaySdWav, AudioAnalyzeFFT256,
 //   AudioAnalyzeFFT1024
 
-#ifndef AUDIO_BLOCK_SAMPLES
-#define AUDIO_BLOCK_SAMPLES  128
-#endif
-
-#ifndef AUDIO_SAMPLE_RATE_EXACT
-#define AUDIO_SAMPLE_RATE_EXACT 44100.0f
-#endif
-
-#define AUDIO_SAMPLE_RATE AUDIO_SAMPLE_RATE_EXACT
 
 #define noAUDIO_DEBUG_CLASS // disable this class by default
 
@@ -68,14 +60,6 @@ class AudioConnection;
 #if defined(AUDIO_DEBUG_CLASS)
 class AudioDebug;  // for testing only, never for public release
 #endif // defined(AUDIO_DEBUG_CLASS)
-
-typedef struct audio_block_struct {
-	uint8_t  ref_count;
-	uint8_t  reserved1;
-	uint16_t memory_pool_index;
-	int16_t  data[AUDIO_BLOCK_SAMPLES];
-} audio_block_t;
-
 
 
 class AudioConnection

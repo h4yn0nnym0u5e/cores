@@ -636,12 +636,19 @@ static uint8_t microsoft_os_compatible_id_desc[] = {
 
 #define AUDIO_INTERFACE_DESC_POS	KEYMEDIA_INTERFACE_DESC_POS+KEYMEDIA_INTERFACE_DESC_SIZE
 #ifdef  AUDIO_INTERFACE
-#define AUDIO_INTERFACE_DESC_SIZE	8 + 9+10+12+9+12+10+9 + 9+9+7+11+9+7 + 9+9+7+11+9+7+9
+
+#define FEATURE_UNIT_DESC_SIZE_480 (6 + (1+USB_AUDIO_NO_CHANNELS_480)*4)
+#define FEATURE_UNIT_DESC_SIZE_12 (6 + (1+USB_AUDIO_NO_CHANNELS_12)*4)
+
+#define AUDIO_INTERFACE_DESC_SIZE_480	8 + 9+9+8+17+12+17+FEATURE_UNIT_DESC_SIZE_480+12 + 9+9+16+6+7+8 + 9+9+16+6+7+8+7
+#define AUDIO_INTERFACE_DESC_SIZE_12  8 + 9+9+8+17+12+17+FEATURE_UNIT_DESC_SIZE_12+12 + 9+9+16+6+7+8 + 9+9+16+6+7+8+7
 #else
-#define AUDIO_INTERFACE_DESC_SIZE	0
+#define AUDIO_INTERFACE_DESC_SIZE_12	0
+#define AUDIO_INTERFACE_DESC_SIZE_480	0
 #endif
 
-#define MULTITOUCH_INTERFACE_DESC_POS	AUDIO_INTERFACE_DESC_POS+AUDIO_INTERFACE_DESC_SIZE
+#define MULTITOUCH_INTERFACE_DESC_POS_12	AUDIO_INTERFACE_DESC_POS+AUDIO_INTERFACE_DESC_SIZE_12
+#define MULTITOUCH_INTERFACE_DESC_POS_480	AUDIO_INTERFACE_DESC_POS+AUDIO_INTERFACE_DESC_SIZE_480
 #ifdef  MULTITOUCH_INTERFACE
 #define MULTITOUCH_INTERFACE_DESC_SIZE	9+9+7
 #define MULTITOUCH_HID_DESC_OFFSET	MULTITOUCH_INTERFACE_DESC_POS+9
@@ -649,7 +656,8 @@ static uint8_t microsoft_os_compatible_id_desc[] = {
 #define MULTITOUCH_INTERFACE_DESC_SIZE	0
 #endif
 
-#define EXPERIMENTAL_INTERFACE_DESC_POS	MULTITOUCH_INTERFACE_DESC_POS+MULTITOUCH_INTERFACE_DESC_SIZE
+#define EXPERIMENTAL_INTERFACE_DESC_POS_12	MULTITOUCH_INTERFACE_DESC_POS_12+MULTITOUCH_INTERFACE_DESC_SIZE
+#define EXPERIMENTAL_INTERFACE_DESC_POS_480	MULTITOUCH_INTERFACE_DESC_POS_480+MULTITOUCH_INTERFACE_DESC_SIZE
 #ifdef  EXPERIMENTAL_INTERFACE
 #define EXPERIMENTAL_INTERFACE_DESC_SIZE 9+7+7
 #define EXPERIMENTAL_HID_DESC_OFFSET	MULTITOUCH_INTERFACE_DESC_POS+9
@@ -657,7 +665,8 @@ static uint8_t microsoft_os_compatible_id_desc[] = {
 #define EXPERIMENTAL_INTERFACE_DESC_SIZE 0
 #endif
 
-#define CONFIG_DESC_SIZE		EXPERIMENTAL_INTERFACE_DESC_POS+EXPERIMENTAL_INTERFACE_DESC_SIZE
+#define CONFIG_DESC_SIZE_12		EXPERIMENTAL_INTERFACE_DESC_POS_12+EXPERIMENTAL_INTERFACE_DESC_SIZE
+#define CONFIG_DESC_SIZE_480		EXPERIMENTAL_INTERFACE_DESC_POS_480+EXPERIMENTAL_INTERFACE_DESC_SIZE
 
 
 
@@ -668,12 +677,12 @@ static uint8_t microsoft_os_compatible_id_desc[] = {
 // USB Configuration Descriptor.  This huge descriptor tells all
 // of the devices capabilities.
 
-PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
+PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE_480] = {
         // configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
         9,                                      // bLength;
         2,                                      // bDescriptorType;
-        LSB(CONFIG_DESC_SIZE),                 // wTotalLength
-        MSB(CONFIG_DESC_SIZE),
+        LSB(CONFIG_DESC_SIZE_480),                 // wTotalLength
+        MSB(CONFIG_DESC_SIZE_480),
         NUM_INTERFACE,                          // bNumInterfaces
         1,                                      // bConfigurationValue
         0,                                      // iConfiguration
@@ -1403,98 +1412,171 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 #endif // KEYMEDIA_INTERFACE
 
 #ifdef AUDIO_INTERFACE
+      // Original
 	// configuration for 480 Mbit/sec speed
-        // interface association descriptor, USB ECN, Table 9-Z
+      // interface association descriptor, USB ECN, Table 9-Z
+      // New USB audio 2.0: 
+      // Standard Interface Association Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.6, Table 4-3 page 46
         8,                                      // bLength
         11,                                     // bDescriptorType
         AUDIO_INTERFACE,                        // bFirstInterface
         3,                                      // bInterfaceCount
         0x01,                                   // bFunctionClass
-        0x01,                                   // bFunctionSubClass
-        0x00,                                   // bFunctionProtocol
+        0x00,                                   // bFunctionSubClass, 0x00 = FUNCTION_SUBCLASS_UNDEFINED
+        0x20,                                   // bFunctionProtocol 0x20 = IP_VERSION_02_00 = AF_VERSION_02_00
         0,                                      // iFunction
+      // Original
 	// Standard AudioControl (AC) Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-1, page 36
-	9,					// bLength
+	// New USB audio 2.0: 
+      // Standard AudioControl (AC) Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.1, Table 4-4 page 47
+      9,					// bLength
 	4,					// bDescriptorType, 4 = INTERFACE
 	AUDIO_INTERFACE,			// bInterfaceNumber
 	0,					// bAlternateSetting
 	0,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	1,					// bInterfaceSubclass, 1 = AUDIO_CONTROL
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol, IP_VERSION_02_00==0x20
 	0,					// iInterface
+      // Original
 	// Class-specific AC Interface Header Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-2, page 37-38
-	10,					// bLength
+	// New USB audio 2.0: 
+      // Input Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2, Table 4-5 page 48-49
+      9,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	0x01,					// bDescriptorSubtype, 1 = HEADER
-	0x00, 0x01,				// bcdADC (version 1.0)
-	LSB(62), MSB(62),			// wTotalLength
-	2,					// bInCollection
-	AUDIO_INTERFACE+1,			// baInterfaceNr(1) - Transmit to PC
-	AUDIO_INTERFACE+2,			// baInterfaceNr(2) - Receive from PC
-	// Input Terminal Descriptor
-	// USB DCD for Audio Devices 1.0, Table 4-3, page 39
-	12,					// bLength
+	0x00, 0x02,				// bcdADC (version 2.0)
+      0xff,                         // bCategory 0xff = other
+      LSB(75+FEATURE_UNIT_DESC_SIZE_480), MSB(75+FEATURE_UNIT_DESC_SIZE_480),// wTotalLength: size of this descriptor + all input and output and feature unit descriptors + clock sources
+      0,                            // bmControls
+// removed	2,					// bInCollection
+// removed	AUDIO_INTERFACE+1,			// baInterfaceNr(1) - Transmit to PC
+// removed	AUDIO_INTERFACE+2,			// baInterfaceNr(2) - Receive from PC
+	// New USB audio 2.0: 
+      // Clock Source Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.1, Table 4-9 page 49-50
+      8,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
-	0x02,					// bDescriptorSubType, 2 = INPUT_TERMINAL
+	0x0a,					// bDescriptorSubType, 2 = CLOCK_SOURCE
+	0x3a,					// bClockID
+	0x01, 				// Internal fixed clock, not synchronized to SOF
+	1 | 4,			      // bmControls: 1: clock frequency control is read only, 4 clock validity control is read only 
+	0,                            // bAssocTerminal
+      0,		                  // iClockSource
+	// Original
+      // Input Terminal Descriptor
+	// USB DCD for Audio Devices 1.0, Table 4-3, page 39
+	// New USB audio 2.0: 
+      // Input Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.4, Table 4-9 page 52-53
+      17,					// bLength
+	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
+	2,					// bDescriptorSubType, 2 = INPUT_TERMINAL
 	1,					// bTerminalID
-	//0x01, 0x02,				// wTerminalType, 0x0201 = MICROPHONE
-	//0x03, 0x06,				// wTerminalType, 0x0603 = Line Connector
 	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio
 	0,					// bAssocTerminal, 0 = unidirectional
-	2,					// bNrChannels
-	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
-	0,					// iChannelNames
+	0x3a,                         // bCSourceID
+      USB_AUDIO_NO_CHANNELS_480,		// bNrChannels
+      LSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 24) & 255),// bmChannelConfig
+	0x00,                         // iChannelNames
+      0x00, 0x00,				// bmControls e.g. copy protect readable and writeable
 	0, 					// iTerminal
+      // Original
 	// Output Terminal Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-4, page 40
-	9,					// bLength
+	// New USB audio 2.0: 
+      // Output Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.5, Table 4-10 page 53
+      12,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	3,					// bDescriptorSubtype, 3 = OUTPUT_TERMINAL
 	2,					// bTerminalID
 	0x01, 0x01,				// wTerminalType, 0x0101 = USB_STREAMING
 	0,					// bAssocTerminal, 0 = unidirectional
-	1,					// bCSourceID, connected to input terminal, ID=1
-	0,					// iTerminal
+	1,				      // bSourceID, connected to feature, ID=31
+	0x3a,					// bCSourceID
+      0,0,					// bmControls
+      0,					// iTerminal
+      // Original
 	// Input Terminal Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-3, page 39
-	12,					// bLength
+	// New USB audio 2.0: 
+      // Input Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.4, Table 4-9 page 52-53
+      17,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	2,					// bDescriptorSubType, 2 = INPUT_TERMINAL
 	3,					// bTerminalID
 	0x01, 0x01,				// wTerminalType, 0x0101 = USB_STREAMING
 	0,					// bAssocTerminal, 0 = unidirectional
-	2,					// bNrChannels
-	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
-	0,					// iChannelNames
+	0x3a,                           // bCSourceID
+      USB_AUDIO_NO_CHANNELS_480,		// bNrChannels
+      LSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 24) & 255),// bmChannelConfig
+	0x00,                         // iChannelNames
+      0x00, 0x00,				// bmControls e.g.: copy protect readable and writeable
 	0, 					// iTerminal
-	// Volume feature descriptor
-	10,					// bLength
+      // Original
+      // Feature Unit Descriptor
+	// USB DCD for Audio Devices 1.0, Table 4-7, page 43
+      // New USB audio 2.0: 
+      // Feature Unit Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.8, Table 4-13 page 58-59
+	FEATURE_UNIT_DESC_SIZE_480,	// bLength
 	0x24, 				// bDescriptorType = CS_INTERFACE
 	0x06, 				// bDescriptorSubType = FEATURE_UNIT
 	0x31, 				// bUnitID
 	0x03, 				// bSourceID (Input Terminal)
-	0x01, 				// bControlSize (each channel is 1 byte, 3 channels)
-	0x01, 				// bmaControls(0) Master: Mute
-	0x02, 				// bmaControls(1) Left: Volume
-	0x02, 				// bmaControls(2) Right: Volume
-	0x00,				// iFeature
+	0x03,0x00,0x00,0x00,		// bmaControls(0) Master: Mute   bit 0 and 1
+	12,0x00,0x00,0x00,		// bmaControls(1) Left: Volume   bit 2 and 3   
+	12,0x00,0x00,0x00,		// bmaControls(2) Right: Volume  bit 2 and 3
+#if USB_AUDIO_NO_CHANNELS_480 > 2
+	12,0x00,0x00,0x00,		// bmaControls(1) channel 3: Volume   bit 2 and 3   
+	12,0x00,0x00,0x00,		// bmaControls(2) channel 4: Volume  bit 2 and 3
+#endif
+#if USB_AUDIO_NO_CHANNELS_480 > 4
+	12,0x00,0x00,0x00,		// bmaControls(1) channel 5: Volume   bit 2 and 3   
+	12,0x00,0x00,0x00,		// bmaControls(2) channel 6: Volume  bit 2 and 3
+#endif
+#if USB_AUDIO_NO_CHANNELS_480 > 6
+	12,0x00,0x00,0x00,		// bmaControls(1) channel 7: Volume   bit 2 and 3   
+	12,0x00,0x00,0x00,		// bmaControls(2) channel 8: Volume  bit 2 and 3
+#endif
+      0x00,				      // iFeature
+      // Original
 	// Output Terminal Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-4, page 40
-	9,					// bLength
+	// New USB audio 2.0: 
+      // Output Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.5, Table 4-10 page 53
+      12,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	3,					// bDescriptorSubtype, 3 = OUTPUT_TERMINAL
 	4,					// bTerminalID
-	//0x02, 0x03,				// wTerminalType, 0x0302 = Headphones
-	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio
+	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio 
 	0,					// bAssocTerminal, 0 = unidirectional
-	0x31,				// bCSourceID, connected to feature, ID=31
-	0,					// iTerminal
+	0x31,				      // bSourceID, connected to feature, ID=31
+	0x3a,					// bCSourceID
+      0,0,					// bmControls
+      0,					// iTerminal
+      //Original
 	// Standard AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.1, Table 4-18, page 59
 	// Alternate 0: default setting, disabled zero bandwidth
+	// New USB audio 2.0: 
+      // Standard AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.1, Table 4-26 page 75
+      // Alternate 0: default setting, disabled zero bandwidth
 	9,					// bLenght
 	4,					// bDescriptorType = INTERFACE
 	AUDIO_INTERFACE+1,			// bInterfaceNumber
@@ -1502,7 +1584,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	0,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
 	// Alternate 1: streaming data
 	9,					// bLenght
@@ -1512,48 +1594,78 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	1,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
 	// Class-Specific AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.2, Table 4-19, page 60
-	7, 					// bLength
+	// New USB audio 2.0: 
+      // Class-Specific AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.2, Table 4-27 page 75-77
+      16, 					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	1,					// bDescriptorSubtype, 1 = AS_GENERAL
 	2,					// bTerminalLink: Terminal ID = 2
-	3,					// bDelay (approx 3ms delay, audio lib updates)
-	0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+	//removed   3,					// bDelay (approx 3ms delay, audio lib updates)
+	0,                            //bmControls
+      1,                            //bFormatType 1=FORMAT_TYPE_I
+      0x01, 0x00, 0x00, 0x00,       //bmFormats first bit: PCM
+ 	//removed   0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+      USB_AUDIO_NO_CHANNELS_480,            //bNrChannels
+      LSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 24) & 255),// bmChannelConfig
+      0,                            //iChannelNames   index of string descriptor at the bottom of the file
+      // Original
 	// Type I Format Descriptor
 	// USB DCD for Audio Data Formats 1.0, Section 2.2.5, Table 2-1, page 10
-	11,					// bLength
+      // New USB audio 2.0:
+      // Univeral Serial Bus Device Class Definition for Audio Data Formats 2.0, Section 2.3.1.6, Table 2-2, page 15-16
+      6,					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
-	2,					// bNrChannels = 2
-	2,					// bSubFrameSize = 2 byte
-	16,					// bBitResolution = 16 bits
-	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+	//removed   2,					// bNrChannels = 2
+	//removed   2,					// bSubFrameSize = 2 byte
+	AUDIO_SUBSLOT_SIZE,		// bSubSlotSize = size of a single sample in bytes (e.g. 2 bytes for 16bit audio)
+	AUDIO_BITRESOLUTION,		// bBitResolution = 16 bits
+	//removed   1,					// bSamFreqType = 1 frequency
+	//removed   LSB(44100), MSB(44100), 0,		// tSamFreq
+
+      //Original
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
-	9, 					// bLength
+      // New USB audio 2.0: 
+      // Standard AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.1, Table 4-33 page 85-86
+	7, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-	AUDIO_TX_ENDPOINT | 0x80,		// bEndpointAddress
+	AUDIO_TX_ENDPOINT | 0x80,			// bEndpointAddress (0x80 = 10000000 -> audio source)
 	0x09, 					// bmAttributes = isochronous, adaptive
-	LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),	// wMaxPacketSize
-	4,			 		// bInterval, 4 = every 8 micro-frames
-	0,					// bRefresh
-	0,					// bSynchAddress
+	LSB(AUDIO_TX_SIZE_480), MSB(AUDIO_TX_SIZE_480),	// wMaxPacketSize
+	AUDIO_POLLING_INTERVAL_480,			 	// bInterval, 4 -> 2^(4-1)=8 -> every 8 micro-frames
+//removed		0,					// bRefresh
+//removed		0,		// bSynchAddress
+      //Original
 	// Class-Specific AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.2, Table 4-21, page 62-63
-	7,  					// bLength
+      // New USB audio 2.0: 
+      // Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.2, Table 4-34 page 86-87
+      8,  					// bLength
 	0x25,  					// bDescriptorType, 0x25 = CS_ENDPOINT
 	1,  					// bDescriptorSubtype, 1 = EP_GENERAL
 	0x00,  					// bmAttributes
+	0x00,  					// bmControls
 	0,  					// bLockDelayUnits, 1 = ms
 	0x00, 0x00,  				// wLockDelay
-	// Standard AS Interface Descriptor
+      // Original:
+      // Standard AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.1, Table 4-18, page 59
-	// Alternate 0: default setting, disabled zero bandwidth
+	// New USB audio 2.0: 
+      // Standard AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.1, Table 4-26 page 75
+      // Alternate 0: default setting, disabled zero bandwidth
 	9,					// bLenght
 	4,					// bDescriptorType = INTERFACE
 	AUDIO_INTERFACE+2,			// bInterfaceNumber
@@ -1561,7 +1673,7 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	0,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
 	// Alternate 1: streaming data
 	9,					// bLenght
@@ -1571,55 +1683,85 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 	2,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
+      // Original:
 	// Class-Specific AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.2, Table 4-19, page 60
-	7, 					// bLength
+	// New USB audio 2.0: 
+      // Class-Specific AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.2, Table 4-27 page 75-77
+      16, 					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	1,					// bDescriptorSubtype, 1 = AS_GENERAL
 	3,					// bTerminalLink: Terminal ID = 3
-	3,					// bDelay (approx 3ms delay, audio lib updates)
-	0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+	//removed   3,					// bDelay (approx 3ms delay, audio lib updates)
+	0,                            //bmControls
+      1,                            //bFormatType 1=FORMAT_TYPE_I
+      0x01, 0x00, 0x00, 0x00,       //bmFormats first bit: PCM
+ 	//removed   0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+      USB_AUDIO_NO_CHANNELS_480,            //bNrChannels
+      LSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_480),             // bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_480) >> 24) & 255),// bmChannelConfig
+      0,                            //iChannelNames   index of string descriptor at the bottom of the file
+      // Original:
 	// Type I Format Descriptor
 	// USB DCD for Audio Data Formats 1.0, Section 2.2.5, Table 2-1, page 10
-	11,					// bLength
+	// New USB audio 2.0:
+      // Univeral Serial Bus Device Class Definition for Audio Data Formats 2.0, Section 2.3.1.6, Table 2-2, page 15-16
+      6,					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
-	2,					// bNrChannels = 2
-	2,					// bSubFrameSize = 2 byte
-	16,					// bBitResolution = 16 bits
-	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+	//removed   2,					// bNrChannels = 2
+	//removed   2,					// bSubFrameSize = 2 byte
+	AUDIO_SUBSLOT_SIZE,		// bSubSlotSize = size of a single sample in bytes (e.g. 2 bytes for 16bit audio)
+	AUDIO_BITRESOLUTION,		// bBitResolution = 16 bits
+	//removed   1,					// bSamFreqType = 1 frequency
+	//removed   LSB(44100), MSB(44100), 0,		// tSamFreq
+      // Original:
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
-	9, 					// bLength
+	// New USB audio 2.0: 
+      // Standard AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.1, Table 4-33 page 85-86
+	7, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-	AUDIO_RX_ENDPOINT,			// bEndpointAddress
+	AUDIO_RX_ENDPOINT | 0x00,			// bEndpointAddress  (0x00 = 00000000 -> audio sink)
 	0x05, 					// bmAttributes = isochronous, asynchronous
-	LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),	// wMaxPacketSize
-	4,			 		// bInterval, 4 = every 8 micro-frames
-	0,					// bRefresh
-	AUDIO_SYNC_ENDPOINT | 0x80,		// bSynchAddress
-	// Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+	LSB(AUDIO_RX_SIZE_480), MSB(AUDIO_RX_SIZE_480),	// wMaxPacketSize
+	AUDIO_POLLING_INTERVAL_480,			 	// bInterval, 4 -> 2^(4-1)=8 -> every 8 micro-frames
+//removed		0,					// bRefresh
+//removed		AUDIO_SYNC_ENDPOINT | 0x80,		// bSynchAddress
+      // Original:
+      // Class-Specific AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.2, Table 4-21, page 62-63
-	7,  					// bLength
+	// New USB audio 2.0: 
+      // Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.2, Table 4-34 page 86-87
+      8,  					// bLength
 	0x25,  					// bDescriptorType, 0x25 = CS_ENDPOINT
 	1,  					// bDescriptorSubtype, 1 = EP_GENERAL
 	0x00,  					// bmAttributes
+	0x00,  					// bmControls
 	0,  					// bLockDelayUnits, 1 = ms
 	0x00, 0x00,  				// wLockDelay
+      // Original: 
 	// Standard AS Isochronous Audio Synch Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.2.1, Table 4-22, page 63-64
-	9, 					// bLength
+	// New USB audio 2.0: 
+      // Standard AS Isochronous Feedback Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.2.1, Table 4-35 page 87-88
+      7, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-	AUDIO_SYNC_ENDPOINT | 0x80,		// bEndpointAddress
+	AUDIO_SYNC_ENDPOINT | 0x80,		// bEndpointAddress, 0x80=10000000 -> IN endpoint
 	0x11, 					// bmAttributes = isochronous, feedback
 	4, 0,					// wMaxPacketSize, 4 bytes
-	4,			 		// bInterval, 4 = 4 = every 8 micro-frames
-	7,					// bRefresh,
-	0,					// bSynchAddress
+	AUDIO_POLLING_INTERVAL_480,		// bInterval, 4 -> 2^(4-1) = 8 -> every 8 micro-frames
+//removed 	7,					// bRefresh, as a power of 2 (1 -> 2^1=2ms to 9 -> 2^9=512ms)
+//removed	0,					// bSynchAddress
 #endif
 
 #ifdef MULTITOUCH_INTERFACE
@@ -1682,12 +1824,12 @@ PROGMEM const uint8_t usb_config_descriptor_480[CONFIG_DESC_SIZE] = {
 };
 
 
-PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
+PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE_12] = {
         // configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
         9,                                      // bLength;
         2,                                      // bDescriptorType;
-        LSB(CONFIG_DESC_SIZE),                 // wTotalLength
-        MSB(CONFIG_DESC_SIZE),
+        LSB(CONFIG_DESC_SIZE_12),                 // wTotalLength
+        MSB(CONFIG_DESC_SIZE_12),
         NUM_INTERFACE,                          // bNumInterfaces
         1,                                      // bConfigurationValue
         0,                                      // iConfiguration
@@ -2417,98 +2559,171 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 #endif // KEYMEDIA_INTERFACE
 
 #ifdef AUDIO_INTERFACE
-	// configuration for 12 Mbit/sec speed
-        // interface association descriptor, USB ECN, Table 9-Z
+      // Original
+	// configuration for 480 Mbit/sec speed
+      // interface association descriptor, USB ECN, Table 9-Z
+      // New USB audio 2.0: 
+      // Standard Interface Association Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.6, Table 4-3 page 46
         8,                                      // bLength
         11,                                     // bDescriptorType
         AUDIO_INTERFACE,                        // bFirstInterface
         3,                                      // bInterfaceCount
         0x01,                                   // bFunctionClass
-        0x01,                                   // bFunctionSubClass
-        0x00,                                   // bFunctionProtocol
+        0x00,                                   // bFunctionSubClass, 0x00 = FUNCTION_SUBCLASS_UNDEFINED
+        0x20,                                   // bFunctionProtocol 0x20 = IP_VERSION_02_00 = AF_VERSION_02_00
         0,                                      // iFunction
+      // Original
 	// Standard AudioControl (AC) Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-1, page 36
-	9,					// bLength
+	// New USB audio 2.0: 
+      // Standard AudioControl (AC) Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.1, Table 4-4 page 47
+      9,					// bLength
 	4,					// bDescriptorType, 4 = INTERFACE
 	AUDIO_INTERFACE,			// bInterfaceNumber
 	0,					// bAlternateSetting
 	0,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	1,					// bInterfaceSubclass, 1 = AUDIO_CONTROL
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol, IP_VERSION_02_00==0x20
 	0,					// iInterface
+      // Original
 	// Class-specific AC Interface Header Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-2, page 37-38
-	10,					// bLength
+	// New USB audio 2.0: 
+      // Input Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2, Table 4-5 page 48-49
+      9,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	0x01,					// bDescriptorSubtype, 1 = HEADER
-	0x00, 0x01,				// bcdADC (version 1.0)
-	LSB(62), MSB(62),			// wTotalLength
-	2,					// bInCollection
-	AUDIO_INTERFACE+1,			// baInterfaceNr(1) - Transmit to PC
-	AUDIO_INTERFACE+2,			// baInterfaceNr(2) - Receive from PC
-	// Input Terminal Descriptor
-	// USB DCD for Audio Devices 1.0, Table 4-3, page 39
-	12,					// bLength
+	0x00, 0x02,				// bcdADC (version 2.0)
+      0xff,                         // bCategory 0xff = other
+      LSB(75+FEATURE_UNIT_DESC_SIZE_12), MSB(75+FEATURE_UNIT_DESC_SIZE_12),// wTotalLength: size of this descriptor + all input and output and feature unit descriptors + clock sources
+      0,                            // bmControls
+// removed	2,					// bInCollection
+// removed	AUDIO_INTERFACE+1,			// baInterfaceNr(1) - Transmit to PC
+// removed	AUDIO_INTERFACE+2,			// baInterfaceNr(2) - Receive from PC
+	// New USB audio 2.0: 
+      // Clock Source Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.1, Table 4-9 page 49-50
+      8,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
-	0x02,					// bDescriptorSubType, 2 = INPUT_TERMINAL
+	0x0a,					// bDescriptorSubType, 2 = CLOCK_SOURCE
+	0x3a,					// bClockID
+	0x01, 				// Internal fixed clock, not synchronized to SOF
+	1 | 4,			      // bmControls: 1: clock frequency control is read only, 4 clock validity control is read only 
+	0,                            // bAssocTerminal
+      0,		                  // iClockSource
+	// Original
+      // Input Terminal Descriptor
+	// USB DCD for Audio Devices 1.0, Table 4-3, page 39
+	// New USB audio 2.0: 
+      // Input Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.4, Table 4-9 page 52-53
+      17,					// bLength
+	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
+	2,					// bDescriptorSubType, 2 = INPUT_TERMINAL
 	1,					// bTerminalID
-	//0x01, 0x02,				// wTerminalType, 0x0201 = MICROPHONE
-	//0x03, 0x06,				// wTerminalType, 0x0603 = Line Connector
 	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio
 	0,					// bAssocTerminal, 0 = unidirectional
-	2,					// bNrChannels
-	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
-	0,					// iChannelNames
+	0x3a,                            // bCSourceID
+      USB_AUDIO_NO_CHANNELS_12,		// bNrChannels
+      LSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 24) & 255),// bmChannelConfig
+	0x00,                         // iChannelNames
+      0x00, 0x00,				// bmControls     //Todo: does we need to set copy protect
 	0, 					// iTerminal
+      // Original
 	// Output Terminal Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-4, page 40
-	9,					// bLength
+	// New USB audio 2.0: 
+      // Output Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.5, Table 4-10 page 53
+      12,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	3,					// bDescriptorSubtype, 3 = OUTPUT_TERMINAL
 	2,					// bTerminalID
 	0x01, 0x01,				// wTerminalType, 0x0101 = USB_STREAMING
 	0,					// bAssocTerminal, 0 = unidirectional
-	1,					// bCSourceID, connected to input terminal, ID=1
-	0,					// iTerminal
+	1,				      // bSourceID, connected to feature, ID=31
+	0x3a,					// bCSourceID
+      0,0,					// bmControls
+      0,					// iTerminal
+      // Original
 	// Input Terminal Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-3, page 39
-	12,					// bLength
+	// New USB audio 2.0: 
+      // Input Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.4, Table 4-9 page 52-53
+      17,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	2,					// bDescriptorSubType, 2 = INPUT_TERMINAL
 	3,					// bTerminalID
 	0x01, 0x01,				// wTerminalType, 0x0101 = USB_STREAMING
 	0,					// bAssocTerminal, 0 = unidirectional
-	2,					// bNrChannels
-	0x03, 0x00,				// wChannelConfig, 0x0003 = Left & Right Front
-	0,					// iChannelNames
+	0x3a,                            // bCSourceID
+      USB_AUDIO_NO_CHANNELS_12,		// bNrChannels
+      LSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 24) & 255),// bmChannelConfig
+	0x00,                         // iChannelNames
+      0x00, 0x00,				// bmControls
 	0, 					// iTerminal
-	// Volume feature descriptor
-	10,					// bLength
+      // Original
+      // Feature Unit Descriptor
+	// USB DCD for Audio Devices 1.0, Table 4-7, page 43
+      // New USB audio 2.0: 
+      // Feature Unit Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.8, Table 4-13 page 58-59
+	FEATURE_UNIT_DESC_SIZE_12,	// bLength
 	0x24, 				// bDescriptorType = CS_INTERFACE
 	0x06, 				// bDescriptorSubType = FEATURE_UNIT
 	0x31, 				// bUnitID
 	0x03, 				// bSourceID (Input Terminal)
-	0x01, 				// bControlSize (each channel is 1 byte, 3 channels)
-	0x01, 				// bmaControls(0) Master: Mute
-	0x02, 				// bmaControls(1) Left: Volume
-	0x02, 				// bmaControls(2) Right: Volume
-	0x00,				// iFeature
+	0x03,0x00,0x00,0x00,		// bmaControls(0) Master: Mute   bit 0 and 1
+	12,0x00,0x00,0x00,		// bmaControls(1) Left: Volume   bit 2 and 3   
+	12,0x00,0x00,0x00,		// bmaControls(2) Right: Volume  bit 2 and 3
+      #if USB_AUDIO_NO_CHANNELS_12 > 2
+            12,0x00,0x00,0x00,		// bmaControls(1) channel 3: Volume   bit 2 and 3   
+            12,0x00,0x00,0x00,		// bmaControls(2) channel 4: Volume  bit 2 and 3
+      #endif
+      #if USB_AUDIO_NO_CHANNELS_12 > 4
+            12,0x00,0x00,0x00,		// bmaControls(1) channel 5: Volume   bit 2 and 3   
+            12,0x00,0x00,0x00,		// bmaControls(2) channel 6: Volume  bit 2 and 3
+      #endif
+      #if USB_AUDIO_NO_CHANNELS_12 > 6
+            12,0x00,0x00,0x00,		// bmaControls(1) channel 7: Volume   bit 2 and 3   
+            12,0x00,0x00,0x00,		// bmaControls(2) channel 8: Volume  bit 2 and 3
+      #endif
+      0x00,				      // iFeature
+      // Original
 	// Output Terminal Descriptor
 	// USB DCD for Audio Devices 1.0, Table 4-4, page 40
-	9,					// bLength
+	// New USB audio 2.0: 
+      // Output Terminal Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.7.2.5, Table 4-10 page 53
+      12,					// bLength
 	0x24,					// bDescriptorType, 0x24 = CS_INTERFACE
 	3,					// bDescriptorSubtype, 3 = OUTPUT_TERMINAL
 	4,					// bTerminalID
-	//0x02, 0x03,				// wTerminalType, 0x0302 = Headphones
 	0x02, 0x06,				// wTerminalType, 0x0602 = Digital Audio
 	0,					// bAssocTerminal, 0 = unidirectional
-	0x31,				// bCSourceID, connected to feature, ID=31
-	0,					// iTerminal
+	0x31,				      // bSourceID, connected to feature, ID=31
+	0x3a,					// bCSourceID
+      0,0,					// bmControls
+      0,					// iTerminal
+      //Original
 	// Standard AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.1, Table 4-18, page 59
 	// Alternate 0: default setting, disabled zero bandwidth
+	// New USB audio 2.0: 
+      // Standard AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.1, Table 4-26 page 75
+      // Alternate 0: default setting, disabled zero bandwidth
 	9,					// bLenght
 	4,					// bDescriptorType = INTERFACE
 	AUDIO_INTERFACE+1,			// bInterfaceNumber
@@ -2516,7 +2731,7 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	0,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
 	// Alternate 1: streaming data
 	9,					// bLenght
@@ -2526,48 +2741,78 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	1,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
 	// Class-Specific AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.2, Table 4-19, page 60
-	7, 					// bLength
+	// New USB audio 2.0: 
+      // Class-Specific AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.2, Table 4-27 page 75-77
+      16, 					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	1,					// bDescriptorSubtype, 1 = AS_GENERAL
 	2,					// bTerminalLink: Terminal ID = 2
-	3,					// bDelay (approx 3ms delay, audio lib updates)
-	0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+	//removed   3,					// bDelay (approx 3ms delay, audio lib updates)
+	0,                            //bmControls
+      1,                            //bFormatType 1=FORMAT_TYPE_I
+      0x01, 0x00, 0x00, 0x00,       //bmFormats first bit: PCM
+ 	//removed   0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+      USB_AUDIO_NO_CHANNELS_12,            //bNrChannels
+      LSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 24) & 255),// bmChannelConfig
+      0,                            //iChannelNames   index of string descriptor at the bottom of the file
+      // Original
 	// Type I Format Descriptor
 	// USB DCD for Audio Data Formats 1.0, Section 2.2.5, Table 2-1, page 10
-	11,					// bLength
+      // New USB audio 2.0:
+      // Univeral Serial Bus Device Class Definition for Audio Data Formats 2.0, Section 2.3.1.6, Table 2-2, page 15-16
+      6,					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
-	2,					// bNrChannels = 2
-	2,					// bSubFrameSize = 2 byte
-	16,					// bBitResolution = 16 bits
-	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+	//removed   2,					// bNrChannels = 2
+	//removed   2,					// bSubFrameSize = 2 byte
+	AUDIO_SUBSLOT_SIZE,		// bSubSlotSize = size of a single sample in bytes (e.g. 2 bytes for 16bit audio)
+	AUDIO_BITRESOLUTION,		// bBitResolution = 16 bits
+	//removed   1,					// bSamFreqType = 1 frequency
+	//removed   LSB(44100), MSB(44100), 0,		// tSamFreq
+
+      //Original
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
-	9, 					// bLength
+      // New USB audio 2.0: 
+      // Standard AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.1, Table 4-33 page 85-86
+	7, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-	AUDIO_TX_ENDPOINT | 0x80,		// bEndpointAddress
+	AUDIO_TX_ENDPOINT | 0x80,			// bEndpointAddress (0x80 = 10000000 -> audio source)
 	0x09, 					// bmAttributes = isochronous, adaptive
-	LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),	// wMaxPacketSize
-	1,			 		// bInterval, 1 = every frame
-	0,					// bRefresh
-	0,					// bSynchAddress
+	LSB(AUDIO_TX_SIZE_12), MSB(AUDIO_TX_SIZE_12),	// wMaxPacketSize
+	AUDIO_POLLING_INTERVAL_12,			 	// bInterval, 4 -> 2^(4-1)=8 -> every 8 micro-frames
+//removed		0,					// bRefresh
+//removed		0,		// bSynchAddress
+      //Original
 	// Class-Specific AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.2, Table 4-21, page 62-63
-	7,  					// bLength
+      // New USB audio 2.0: 
+      // Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.2, Table 4-34 page 86-87
+      8,  					// bLength
 	0x25,  					// bDescriptorType, 0x25 = CS_ENDPOINT
 	1,  					// bDescriptorSubtype, 1 = EP_GENERAL
 	0x00,  					// bmAttributes
+	0x00,  					// bmControls
 	0,  					// bLockDelayUnits, 1 = ms
 	0x00, 0x00,  				// wLockDelay
-	// Standard AS Interface Descriptor
+      // Original:
+      // Standard AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.1, Table 4-18, page 59
-	// Alternate 0: default setting, disabled zero bandwidth
+	// New USB audio 2.0: 
+      // Standard AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.1, Table 4-26 page 75
+      // Alternate 0: default setting, disabled zero bandwidth
 	9,					// bLenght
 	4,					// bDescriptorType = INTERFACE
 	AUDIO_INTERFACE+2,			// bInterfaceNumber
@@ -2575,7 +2820,7 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	0,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
 	// Alternate 1: streaming data
 	9,					// bLenght
@@ -2585,55 +2830,85 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 	2,					// bNumEndpoints
 	1,					// bInterfaceClass, 1 = AUDIO
 	2,					// bInterfaceSubclass, 2 = AUDIO_STREAMING
-	0,					// bInterfaceProtocol
+	0x20,					// bInterfaceProtocol IP_VERSION_02_00==0x20
 	0,					// iInterface
+      // Original:
 	// Class-Specific AS Interface Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.5.2, Table 4-19, page 60
-	7, 					// bLength
+	// New USB audio 2.0: 
+      // Class-Specific AS Interface Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.9.2, Table 4-27 page 75-77
+      16, 					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	1,					// bDescriptorSubtype, 1 = AS_GENERAL
 	3,					// bTerminalLink: Terminal ID = 3
-	3,					// bDelay (approx 3ms delay, audio lib updates)
-	0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+	//removed   3,					// bDelay (approx 3ms delay, audio lib updates)
+	0,                            //bmControls
+      1,                            //bFormatType 1=FORMAT_TYPE_I
+      0x01, 0x00, 0x00, 0x00,       //bmFormats first bit: PCM
+ 	//removed   0x01, 0x00,				// wFormatTag, 0x0001 = PCM
+      USB_AUDIO_NO_CHANNELS_12,            //bNrChannels
+      LSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      MSB(CHANNEL_CONFIG_12),             // bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 16) & 255),// bmChannelConfig
+      (((CHANNEL_CONFIG_12) >> 24) & 255),// bmChannelConfig
+      0,                            //iChannelNames   index of string descriptor at the bottom of the file
+      // Original:
 	// Type I Format Descriptor
 	// USB DCD for Audio Data Formats 1.0, Section 2.2.5, Table 2-1, page 10
-	11,					// bLength
+	// New USB audio 2.0:
+      // Univeral Serial Bus Device Class Definition for Audio Data Formats 2.0, Section 2.3.1.6, Table 2-2, page 15-16
+      6,					// bLength
 	0x24,					// bDescriptorType = CS_INTERFACE
 	2,					// bDescriptorSubtype = FORMAT_TYPE
 	1,					// bFormatType = FORMAT_TYPE_I
-	2,					// bNrChannels = 2
-	2,					// bSubFrameSize = 2 byte
-	16,					// bBitResolution = 16 bits
-	1,					// bSamFreqType = 1 frequency
-	LSB(44100), MSB(44100), 0,		// tSamFreq
+	//removed   2,					// bNrChannels = 2
+	//removed   2,					// bSubFrameSize = 2 byte
+	AUDIO_SUBSLOT_SIZE,		// bSubSlotSize = size of a single sample in bytes (e.g. 2 bytes for 16bit audio)
+	AUDIO_BITRESOLUTION,		// bBitResolution = 16 bits
+	//removed   1,					// bSamFreqType = 1 frequency
+	//removed   LSB(44100), MSB(44100), 0,		// tSamFreq
+      // Original:
 	// Standard AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.1, Table 4-20, page 61-62
-	9, 					// bLength
+	// New USB audio 2.0: 
+      // Standard AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.1, Table 4-33 page 85-86
+	7, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-	AUDIO_RX_ENDPOINT,			// bEndpointAddress
+	AUDIO_RX_ENDPOINT | 0x00,			// bEndpointAddress  (0x00 = 00000000 -> audio sink)
 	0x05, 					// bmAttributes = isochronous, asynchronous
-	LSB(AUDIO_RX_SIZE), MSB(AUDIO_RX_SIZE),	// wMaxPacketSize
-	1,			 		// bInterval, 1 = every frame
-	0,					// bRefresh
-	AUDIO_SYNC_ENDPOINT | 0x80,		// bSynchAddress
-	// Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+	LSB(AUDIO_RX_SIZE_12), MSB(AUDIO_RX_SIZE_12),	// wMaxPacketSize
+	AUDIO_POLLING_INTERVAL_12,			 	// bInterval, 4 -> 2^(4-1)=8 -> every 8 micro-frames
+//removed		0,					// bRefresh
+//removed		AUDIO_SYNC_ENDPOINT | 0x80,		// bSynchAddress
+      // Original:
+      // Class-Specific AS Isochronous Audio Data Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.1.2, Table 4-21, page 62-63
-	7,  					// bLength
+	// New USB audio 2.0: 
+      // Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.1.2, Table 4-34 page 86-87
+      8,  					// bLength
 	0x25,  					// bDescriptorType, 0x25 = CS_ENDPOINT
 	1,  					// bDescriptorSubtype, 1 = EP_GENERAL
 	0x00,  					// bmAttributes
+	0x00,  					// bmControls
 	0,  					// bLockDelayUnits, 1 = ms
 	0x00, 0x00,  				// wLockDelay
+      // Original: 
 	// Standard AS Isochronous Audio Synch Endpoint Descriptor
 	// USB DCD for Audio Devices 1.0, Section 4.6.2.1, Table 4-22, page 63-64
-	9, 					// bLength
+	// New USB audio 2.0: 
+      // Standard AS Isochronous Feedback Endpoint Descriptor
+      // Universal Serial Bus Device Class Definition for Audio Devices 2.0, Section 4.10.2.1, Table 4-35 page 87-88
+      7, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
-	AUDIO_SYNC_ENDPOINT | 0x80,		// bEndpointAddress
+	AUDIO_SYNC_ENDPOINT | 0x80,		// bEndpointAddress, 0x80=10000000 -> IN endpoint
 	0x11, 					// bmAttributes = isochronous, feedback
-	3, 0,					// wMaxPacketSize, 3 bytes
-	1,			 		// bInterval, 1 = every frame
-	5,					// bRefresh, 5 = 32ms
-	0,					// bSynchAddress
+	4, 0,					// wMaxPacketSize, 4 bytes
+	AUDIO_POLLING_INTERVAL_12,		// bInterval, 4 -> 2^(4-1) = 8 -> every 8 micro-frames
+//removed 	7,					// bRefresh, as a power of 2 (1 -> 2^1=2ms to 9 -> 2^9=512ms)
+//removed	0,					// bSynchAddress
 #endif
 
 #ifdef MULTITOUCH_INTERFACE
@@ -2695,12 +2970,13 @@ PROGMEM const uint8_t usb_config_descriptor_12[CONFIG_DESC_SIZE] = {
 #endif // EXPERIMENTAL_INTERFACE
 };
 
-
-__attribute__ ((section(".dmabuffers"), aligned(32)))
-uint8_t usb_descriptor_buffer[CONFIG_DESC_SIZE];
-
-
-
+#if CONFIG_DESC_SIZE_480 > CONFIG_DESC_SIZE_12
+      __attribute__ ((section(".dmabuffers"), aligned(32)))
+      uint8_t usb_descriptor_buffer[CONFIG_DESC_SIZE_480];
+#else
+      __attribute__ ((section(".dmabuffers"), aligned(32)))
+      uint8_t usb_descriptor_buffer[CONFIG_DESC_SIZE_12];
+#endif
 
 
 // **************************************************************
@@ -2742,6 +3018,7 @@ PROGMEM const struct usb_string_descriptor_struct usb_string_product_name_defaul
         3,
         PRODUCT_NAME
 };
+
 struct usb_string_descriptor_struct usb_string_serial_number_default = {
         12,
         3,
@@ -2783,8 +3060,8 @@ const usb_descriptor_list_t usb_descriptor_list[] = {
 	//wValue, wIndex, address,          length
 	{0x0100, 0x0000, device_descriptor, sizeof(device_descriptor)},
 	{0x0600, 0x0000, qualifier_descriptor, sizeof(qualifier_descriptor)},
-	{0x0200, 0x0000, usb_config_descriptor_480, CONFIG_DESC_SIZE},
-	{0x0700, 0x0000, usb_config_descriptor_12, CONFIG_DESC_SIZE},
+	{0x0200, 0x0000, usb_config_descriptor_480, CONFIG_DESC_SIZE_480},
+	{0x0700, 0x0000, usb_config_descriptor_12, CONFIG_DESC_SIZE_12},
 #ifdef SEREMU_INTERFACE
 	{0x2200, SEREMU_INTERFACE, seremu_report_desc, sizeof(seremu_report_desc)},
 	{0x2100, SEREMU_INTERFACE, usb_config_descriptor_480+SEREMU_HID_DESC_OFFSET, 9},

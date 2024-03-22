@@ -30,17 +30,20 @@
 
 #pragma once
 
+
 #include "usb_desc.h"
+#include "util/LastCall.h"
 #ifdef AUDIO_INTERFACE
 
 #define FEATURE_MAX_VOLUME 0xFF  // volume accepted from 0 to 0xFF
+#define TARGET_RX_BUFFER_TIME_S 0.0018f	//targeted buffered time (latency) in seconds
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 extern void usb_audio_configure();
 extern uint16_t usb_audio_receive_buffer[];
-extern uint16_t usb_audio_transmit_buffer[];
+extern uint8_t usb_audio_transmit_buffer[];
 extern uint32_t usb_audio_sync_feedback;
 extern uint8_t usb_audio_receive_setting;
 extern uint8_t usb_audio_transmit_setting;
@@ -61,13 +64,29 @@ struct usb_audio_features_struct {
 
 #ifdef __cplusplus
 #include "AudioStream.h"
-
 class AudioInputUSB : public AudioStream
 {
 public:
-	AudioInputUSB(void) : AudioStream(0, NULL) { begin(); }
+	struct Status {
+		uint32_t usb_audio_underrun_count;
+		uint32_t usb_audio_overrun_count;
+		uint32_t audio_memory_underrun_count;
+		float target_num_buffered_samples;
+		uint16_t num_transmitted_channels;		//might be smaller than expected in case the 12Mbit/s bandwidth limits the number of channels
+		uint16_t ring_buffer_size;
+		uint16_t usb_rx_tx_buffer_size;
+		uint16_t bInterval_uS;
+		bool receivingData;
+	};
+
+	AudioInputUSB(float kp =400.f,float ki =.2f ) :
+	AudioStream(0, NULL), _kp(kp), _ki(ki) { begin(); }
 	virtual void update(void);
 	void begin(void);
+	float getBufferedSamples() const;
+	float getBufferedSamplesSmooth() const;
+	float getRequestedSamplingFrequ() const;
+	Status getStatus() const;
 	friend void usb_audio_receive_callback(unsigned int len);
 	friend int usb_audio_set_feature(void *stp, uint8_t *buf);
 	friend int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen);
@@ -78,29 +97,54 @@ public:
 	}
 private:
 	static bool update_responsibility;
-	static audio_block_t *incoming_left;
-	static audio_block_t *incoming_right;
-	static audio_block_t *ready_left;
-	static audio_block_t *ready_right;
-	static uint16_t incoming_count;
-	static uint8_t receive_flag;
+	uint32_t _bufferedSamples=0;
+	float _kp =400.f;
+	float _ki =.2f;
+	float _bufferedSamplesSmooth=0;
+	bool _streaming= false;
+	LastCall<50> _lastCallUpdate;
+	static bool setBlocksQuite(uint32_t noBlocks);
+	static bool allocateChannels(uint16_t idx);
+	static void resetBuffer(double updateCurrentSmooth);
+	static bool isBufferReady();
+	static void tryIncreaseIdxIncoming(uint16_t& count);
+	static void releaseBlocks(uint16_t bufferIdx);
 };
 
+#define TARGET_TX_BUFFER_TIME_S 0.0035f	//targeted buffered time (latency) in seconds
 class AudioOutputUSB : public AudioStream
 {
 public:
-	AudioOutputUSB(void) : AudioStream(2, inputQueueArray) { begin(); }
+	enum BufferState{ready, full, overrun};
+	struct Status {
+		uint32_t usb_audio_underrun_count;
+		uint32_t usb_audio_overrun_count;
+		float target_num_buffered_samples;
+		uint16_t num_transmitted_channels;
+		uint16_t ring_buffer_size;
+		uint16_t usb_rx_tx_buffer_size;
+		uint16_t bInterval_uS;
+		uint32_t num_skipped_Samples;
+		uint32_t num_padded_Samples;
+		bool transmittingData;
+	};
+	AudioOutputUSB(void) : AudioStream(USB_AUDIO_MAX_NO_CHANNELS, inputQueueArray) { begin(); }
 	virtual void update(void);
 	void begin(void);
 	friend unsigned int usb_audio_transmit_callback(void);
+	float getBufferedSamples() const;
+	float getBufferedSamplesSmooth() const;
+	Status getStatus() const;
 private:
+	static void releaseBlocks(uint16_t bufferIdx);
+	static void tryIncreaseIdxTransmission(uint16_t& tBIdx, uint16_t& offset);
 	static bool update_responsibility;
-	static audio_block_t *left_1st;
-	static audio_block_t *left_2nd;
-	static audio_block_t *right_1st;
-	static audio_block_t *right_2nd;
-	static uint16_t offset_1st;
-	audio_block_t *inputQueueArray[2];
+	bool _streaming= false;
+	LastCall<50> _lastCallUpdate;
+	static double updateCurrentSmooth;
+	static double updateCurrentSmoothAtOverrun;
+	static uint16_t outgoing_count;
+	audio_block_t *inputQueueArray[USB_AUDIO_MAX_NO_CHANNELS];
 };
 #endif // __cplusplus
 

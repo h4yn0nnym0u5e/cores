@@ -35,6 +35,7 @@
 // provided by usb_dev.c are meant to be called only by
 // code which provides higher-level interfaces to the user.
 
+#include <AudioData.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -745,11 +746,12 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
 
 #elif defined(USB_AUDIO)
   #define VENDOR_ID		0x16C0
-  #define PRODUCT_ID		0x04D2
+  #define PRODUCT_ID		0x04DE
   #define MANUFACTURER_NAME	{'T','e','e','n','s','y','d','u','i','n','o'}
   #define MANUFACTURER_NAME_LEN	11
   #define PRODUCT_NAME		{'T','e','e','n','s','y',' ','A','u','d','i','o'}
   #define PRODUCT_NAME_LEN	12
+
   #define EP0_SIZE		64
   #define NUM_ENDPOINTS         4
   #define NUM_INTERFACE		4
@@ -760,19 +762,19 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define SEREMU_RX_ENDPOINT    2
   #define SEREMU_RX_SIZE        32
   #define SEREMU_RX_INTERVAL    2
+  
   #define AUDIO_INTERFACE	1	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     3
-  #define AUDIO_TX_SIZE         180
   #define AUDIO_RX_ENDPOINT     3
-  #define AUDIO_RX_SIZE         180
   #define AUDIO_SYNC_ENDPOINT	4
+
   #define ENDPOINT2_CONFIG	ENDPOINT_RECEIVE_INTERRUPT + ENDPOINT_TRANSMIT_INTERRUPT
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_ISOCHRONOUS + ENDPOINT_TRANSMIT_ISOCHRONOUS
   #define ENDPOINT4_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_ISOCHRONOUS
 
 #elif defined(USB_MIDI_AUDIO_SERIAL)
   #define VENDOR_ID		0x16C0
-  #define PRODUCT_ID		0x048A
+  #define PRODUCT_ID		0x1496
   #define MANUFACTURER_NAME	{'T','e','e','n','s','y','d','u','i','n','o'}
   #define MANUFACTURER_NAME_LEN	11
   #define PRODUCT_NAME		{'T','e','e','n','s','y',' ','M','I','D','I','/','A','u','d','i','o'}
@@ -801,9 +803,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE_480      512
   #define AUDIO_INTERFACE	3	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     5
-  #define AUDIO_TX_SIZE         180
   #define AUDIO_RX_ENDPOINT     5
-  #define AUDIO_RX_SIZE         180
   #define AUDIO_SYNC_ENDPOINT	6
   #define ENDPOINT2_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_INTERRUPT
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_BULK + ENDPOINT_TRANSMIT_BULK
@@ -843,9 +843,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define MIDI_RX_SIZE_480      512
   #define AUDIO_INTERFACE	3	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     5
-  #define AUDIO_TX_SIZE         180
   #define AUDIO_RX_ENDPOINT     5
-  #define AUDIO_RX_SIZE         180
   #define AUDIO_SYNC_ENDPOINT	6
   #define ENDPOINT2_CONFIG	ENDPOINT_RECEIVE_UNUSED + ENDPOINT_TRANSMIT_INTERRUPT
   #define ENDPOINT3_CONFIG	ENDPOINT_RECEIVE_BULK + ENDPOINT_TRANSMIT_BULK
@@ -925,9 +923,7 @@ let me know?  http://forum.pjrc.com/forums/4-Suggestions-amp-Bug-Reports
   #define KEYMEDIA_INTERVAL     4
   #define AUDIO_INTERFACE	9	// Audio (uses 3 consecutive interfaces)
   #define AUDIO_TX_ENDPOINT     13
-  #define AUDIO_TX_SIZE         180
   #define AUDIO_RX_ENDPOINT     13
-  #define AUDIO_RX_SIZE         180
   #define AUDIO_SYNC_ENDPOINT	14
   #define MULTITOUCH_INTERFACE  12	// Touchscreen
   #define MULTITOUCH_ENDPOINT   15
@@ -966,4 +962,99 @@ typedef struct {
 extern const usb_descriptor_list_t usb_descriptor_list[];
 #endif // NUM_ENDPOINTS
 #endif // USB_DESC_LIST_DEFINE
+
+#ifdef AUDIO_INTERFACE
+
+  #define AUDIO_SUBSLOT_SIZE 2 //size of an audio sample in bytes (possible values: 1,2,3 or 4)
+  #define AUDIO_BITRESOLUTION (8*AUDIO_SUBSLOT_SIZE)
+  
+  #define USB_AUDIO_CHANNEL_FL  (1<<0)
+  #define USB_AUDIO_CHANNEL_FR  (1<<1)
+  #define USB_AUDIO_CHANNEL_C   (1<<2)
+  #define USB_AUDIO_CHANNEL_LFE (1<<3)
+  #define USB_AUDIO_CHANNEL_BL  (1<<4)  //sometimes called RL (rear left)
+  #define USB_AUDIO_CHANNEL_BR  (1<<5)  //sometimes called RR (rear right)
+  #define USB_AUDIO_CHANNEL_SL  (1<<9)
+  #define USB_AUDIO_CHANNEL_SR  (1<<10)
+  
+  // defines for 480MBit ================================
+  #define USB_AUDIO_NO_CHANNELS_480 8
+  #if USB_AUDIO_NO_CHANNELS_480 == 2
+      #define CHANNEL_CONFIG_480  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR)
+  #endif
+  #if USB_AUDIO_NO_CHANNELS_480 == 4
+        #define CHANNEL_CONFIG_480  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR |USB_AUDIO_CHANNEL_BL | USB_AUDIO_CHANNEL_BR)
+  #endif
+  #if USB_AUDIO_NO_CHANNELS_480 == 6
+        #define CHANNEL_CONFIG_480  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR |USB_AUDIO_CHANNEL_C | USB_AUDIO_CHANNEL_LFE | USB_AUDIO_CHANNEL_SL | USB_AUDIO_CHANNEL_SR)
+  #endif
+  #if USB_AUDIO_NO_CHANNELS_480 == 8
+        #define CHANNEL_CONFIG_480  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR |USB_AUDIO_CHANNEL_C | USB_AUDIO_CHANNEL_LFE | USB_AUDIO_CHANNEL_BL | USB_AUDIO_CHANNEL_BR | USB_AUDIO_CHANNEL_SL | USB_AUDIO_CHANNEL_SR)
+  #endif
+
+  
+  #define BANDWIDTH_BYTES_PER_SEC_480 AUDIO_SAMPLE_RATE_I * AUDIO_SUBSLOT_SIZE * USB_AUDIO_NO_CHANNELS_480
+  #if BANDWIDTH_BYTES_PER_SEC_480 <= 1024000*8
+    //we can not handle more than 1024bytes per mircro frame
+    //if the bandwidth is larger than that, AUDIO_POLLING_INTERVAL_480 will just not be defined and the program won't compile
+    #if BANDWIDTH_BYTES_PER_SEC_480 > 1024000 *4 //more than 1024bytes/250us -> we need 8 micro frames per ms
+      #define AUDIO_POLLING_INTERVAL_480 1  //1 -> 2^(1-1)=1 -> every micro-frame
+    #elif BANDWIDTH_BYTES_PER_SEC_480 > 1024000 *2 //more than 1024bytes/500us -> we need 4 micro frames per ms
+      #define AUDIO_POLLING_INTERVAL_480 2  //2 -> 2^(2-1)=2 -> every 2 micro-frames
+    #elif BANDWIDTH_BYTES_PER_SEC_480 > 1024000 //more than 1024bytes/500us -> we need 2 micro frames per ms
+      #define AUDIO_POLLING_INTERVAL_480 3  //3 -> 2^(3-1)=4 -> every 4 micro-frames
+    #else
+      #define AUDIO_POLLING_INTERVAL_480 4  //4 -> 2^(4-1)=8 -> every 8 micro-frames
+    #endif
+  #endif
+
+  #define AUDIO_NUM_SUBFRAMES_PER_POLLING_480 (1<<(AUDIO_POLLING_INTERVAL_480-1))
+  #define AUDIO_POLLING_INTERVAL_480_SEC (AUDIO_NUM_SUBFRAMES_PER_POLLING_480 *125*1e-6)
+  
+  //AUDIO_RX_SIZE we add 10 percent to the tx buffer in order to be able to request more samples per polling interval (e.g. the clock of the usb host runs slower than the teensy clock)
+  #define AUDIO_RX_SIZE_480         (uint32_t)(((uint32_t)((AUDIO_SAMPLE_RATE * AUDIO_POLLING_INTERVAL_480_SEC) * 1.1)) * USB_AUDIO_NO_CHANNELS_480 * AUDIO_SUBSLOT_SIZE)
+  #define AUDIO_TX_SIZE_480         AUDIO_RX_SIZE_480
+  // end of defines for 480MBit ================================
+
+  // defines for 12MBit ================================
+  #define USB_AUDIO_NO_CHANNELS_12 2
+  #if USB_AUDIO_NO_CHANNELS_12 == 2
+      #define CHANNEL_CONFIG_12  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR)
+  #endif
+  #if USB_AUDIO_NO_CHANNELS_12 == 4
+        #define CHANNEL_CONFIG_12  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR |USB_AUDIO_CHANNEL_BL | USB_AUDIO_CHANNEL_BR)
+  #endif
+  #if USB_AUDIO_NO_CHANNELS_12 == 6
+        #define CHANNEL_CONFIG_12  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR |USB_AUDIO_CHANNEL_C | USB_AUDIO_CHANNEL_LFE | USB_AUDIO_CHANNEL_SL | USB_AUDIO_CHANNEL_SR)
+  #endif
+  #if USB_AUDIO_NO_CHANNELS_12 == 8
+        #define CHANNEL_CONFIG_12  (USB_AUDIO_CHANNEL_FL | USB_AUDIO_CHANNEL_FR |USB_AUDIO_CHANNEL_C | USB_AUDIO_CHANNEL_LFE | USB_AUDIO_CHANNEL_BL | USB_AUDIO_CHANNEL_BR | USB_AUDIO_CHANNEL_SL | USB_AUDIO_CHANNEL_SR)
+  #endif
+  #define BANDWIDTH_BYTES_PER_SEC_12 AUDIO_SAMPLE_RATE_I * AUDIO_SUBSLOT_SIZE * USB_AUDIO_NO_CHANNELS_12
+  #if BANDWIDTH_BYTES_PER_SEC_12 <= 1500000 //=12MBit
+    //we can don't wan't to receive more than 12MBit per second
+    //if the bandwidth is larger than that, AUDIO_POLLING_INTERVAL_480 will just not be defined and the program won't compile
+    #if BANDWIDTH_BYTES_PER_SEC_12 > 1024000 *4 //more than 1024bytes/250us -> we need 8 micro frames per ms
+      #define AUDIO_POLLING_INTERVAL_12 1  //1 -> 2^(1-1)=1 -> every micro-frame
+    #elif BANDWIDTH_BYTES_PER_SEC_12 > 1024000 *2 //more than 1024bytes/500us -> we need 4 micro frames per ms
+      #define AUDIO_POLLING_INTERVAL_12 2  //2 -> 2^(2-1)=2 -> every 2 micro-frames
+    #elif BANDWIDTH_BYTES_PER_SEC_12 > 1024000 //more than 1024bytes/500us -> we need 2 micro frames per ms
+      #define AUDIO_POLLING_INTERVAL_12 3  //3 -> 2^(3-1)=4 -> every 4 micro-frames
+    #else
+      #define AUDIO_POLLING_INTERVAL_12 4  //4 -> 2^(4-1)=8 -> every 8 micro-frames
+    #endif
+  #endif
+
+  #define AUDIO_NUM_SUBFRAMES_PER_POLLING_12 (1<<(AUDIO_POLLING_INTERVAL_12-1))
+  #define AUDIO_POLLING_INTERVAL_12_SEC (AUDIO_NUM_SUBFRAMES_PER_POLLING_12 *125*1e-6)
+  #define AUDIO_RX_SIZE_12         (uint32_t)(((uint32_t)((AUDIO_SAMPLE_RATE * AUDIO_POLLING_INTERVAL_12_SEC) * 1.1)) * USB_AUDIO_NO_CHANNELS_12 * AUDIO_SUBSLOT_SIZE)
+  #define AUDIO_TX_SIZE_12         AUDIO_RX_SIZE_12
+  // end of defines for 12MBit ================================
+  
+  #if (USB_AUDIO_NO_CHANNELS_12) < (USB_AUDIO_NO_CHANNELS_480)
+  	#define USB_AUDIO_MAX_NO_CHANNELS USB_AUDIO_NO_CHANNELS_480
+  #else
+  	#define USB_AUDIO_MAX_NO_CHANNELS USB_AUDIO_NO_CHANNELS_12
+  #endif
+#endif
 
