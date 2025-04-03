@@ -52,6 +52,8 @@ uint16_t AudioStream::cpu_cycles_total = 0;
 uint16_t AudioStream::cpu_cycles_total_max = 0;
 uint16_t AudioStream::memory_used = 0;
 uint16_t AudioStream::memory_used_max = 0;
+uint32_t AudioStream::update_count = 0;
+
 AudioConnection* AudioStream::unused = NULL; // linked list of unused but not destructed connections
 AudioStream* AudioStream::first_clan = NULL; // linked list of unused but not destructed AudioStream objects
 
@@ -1133,6 +1135,7 @@ void software_isr(void) // AudioStream::update_all()
 
 	SCOPE_HIGH();
 	uint32_t totalcycles = ARM_DWT_CYCCNT;
+	AudioStream::update_count++; // another update is occurring
 	//digitalWriteFast(2, HIGH);
 	for (p = AudioStream::first_update; p; p = p->next_update) {
 		if (p->active) {

@@ -238,6 +238,7 @@ public:
 	static uint16_t memory_used;
 	static uint16_t memory_used_max;
 	static audio_block_t silentBlock;	// lots of objects use this - let's provide one
+	static uint32_t update_count; // count of updates: useful for Stuff
 protected:
 	static bool serialStarted;
 	bool active;
