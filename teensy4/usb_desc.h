@@ -1011,23 +1011,23 @@ extern const usb_descriptor_list_t usb_descriptor_list[];
   
   #define BANDWIDTH_BYTES_PER_SEC_480 AUDIO_SAMPLE_RATE_I * AUDIO_SUBSLOT_SIZE * USB_AUDIO_NO_CHANNELS_480
   #if BANDWIDTH_BYTES_PER_SEC_480 <= 1024000*8
-    //we can not handle more than 1024bytes per mircro frame
-    //if the bandwidth is larger than that, AUDIO_POLLING_INTERVAL_480 will just not be defined and the program won't compile
-    #if BANDWIDTH_BYTES_PER_SEC_480 > 1024000 *4 //more than 1024bytes/250us -> we need 8 micro frames per ms
-      #define AUDIO_POLLING_INTERVAL_480 1  //1 -> 2^(1-1)=1 -> every micro-frame
-    #elif BANDWIDTH_BYTES_PER_SEC_480 > 1024000 *2 //more than 1024bytes/500us -> we need 4 micro frames per ms
-      #define AUDIO_POLLING_INTERVAL_480 2  //2 -> 2^(2-1)=2 -> every 2 micro-frames
-    #elif BANDWIDTH_BYTES_PER_SEC_480 > 1024000 //more than 1024bytes/1000us -> we need 2 micro frames per ms
-      #define AUDIO_POLLING_INTERVAL_480 3  //3 -> 2^(3-1)=4 -> every 4 micro-frames
+    // we can not handle more than 1024bytes per microframe
+    // if the bandwidth is larger than that, AUDIO_POLLING_INTERVAL_480 will just not be defined and the program won't compile
+    #if BANDWIDTH_BYTES_PER_SEC_480 > 1024000 *4 //more than 1024bytes/250us -> we need 8 microframes per ms
+      #define AUDIO_POLLING_INTERVAL_480 1  //1 -> 2^(1-1)=1 -> every microframe
+    #elif BANDWIDTH_BYTES_PER_SEC_480 > 1024000 *2 //more than 1024bytes/500us -> we need 4 microframes per ms
+      #define AUDIO_POLLING_INTERVAL_480 2  //2 -> 2^(2-1)=2 -> every 2 microframes
+    #elif BANDWIDTH_BYTES_PER_SEC_480 > 1024000 //more than 1024bytes/1000us -> we need 2 microframes per ms
+      #define AUDIO_POLLING_INTERVAL_480 3  //3 -> 2^(3-1)=4 -> every 4 microframes
     #else
-      #define AUDIO_POLLING_INTERVAL_480 4  //4 -> 2^(4-1)=8 -> every 8 micro-frames
+      #define AUDIO_POLLING_INTERVAL_480 4  //4 -> 2^(4-1)=8 -> every 8 microframes
     #endif
   #endif
 
   #define AUDIO_NUM_SUBFRAMES_PER_POLLING_480 (1<<(AUDIO_POLLING_INTERVAL_480-1))
   #define AUDIO_POLLING_INTERVAL_480_SEC (AUDIO_NUM_SUBFRAMES_PER_POLLING_480 *125*1e-6)
   
-  //AUDIO_RX_SIZE we add 10 percent to the tx buffer in order to be able to request more samples per polling interval (e.g. the clock of the usb host runs slower than the teensy clock)
+  // AUDIO_RX_SIZE we add 10 percent to the tx buffer in order to be able to request more samples per polling interval (e.g. the clock of the usb host runs slower than the Teensy clock)
   #define AUDIO_RX_SIZE_480         (uint32_t)(((uint32_t)((AUDIO_SAMPLE_RATE * AUDIO_POLLING_INTERVAL_480_SEC) * 1.1)) * USB_AUDIO_NO_CHANNELS_480 * AUDIO_SUBSLOT_SIZE)
   #define AUDIO_TX_SIZE_480         AUDIO_RX_SIZE_480
   // end of defines for 480MBit ================================
