@@ -1,3 +1,33 @@
+/* Teensyduino Core Library
+ * http://www.pjrc.com/teensy/
+ * Copyright (c) 2019 PJRC.COM, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * 1. The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * 2. If the Software is incorporated into a build system that allows
+ * selection among a list of target devices, then similar target
+ * devices manufactured by PJRC.COM must be included in the list of
+ * target devices and selectable in the same manner.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include "imxrt.h"
 #include "wiring.h"
 #include "usb_dev.h"
@@ -58,12 +88,6 @@ FLASHMEM void startup_debug_reset(void) { __asm__ volatile("nop"); }
 
 static void ResetHandler2(void);
 
-// In theory we're supposed to gate off the PFD outputs, but
-// in practice it causes strange crashing, especially with LTO.
-// https://www.nxp.com/docs/en/engineering-bulletin/EB790.pdf
-// Uncomment this if you want to try the "correct" way.
-//#define GATE_PFD_WHILE_CHANGE
-
 __attribute__((section(".startup"), naked))
 void ResetHandler(void)
 {
@@ -71,10 +95,6 @@ void ResetHandler(void)
 	IOMUXC_GPR_GPR16 = 0x00200007;
 	IOMUXC_GPR_GPR14 = 0x00AA0000;
 	__asm__ volatile("mov sp, %0" : : "r" ((uint32_t)&_estack) : "memory");
-#if 0
-	__asm__ volatile("dsb":::"memory");
-	__asm__ volatile("isb":::"memory");
-#endif
 	ResetHandler2();
 	__builtin_unreachable();
 }
@@ -84,14 +104,7 @@ static void ResetHandler2(void)
 {
 	unsigned int i;
 	__asm__ volatile("dsb":::"memory");
-#if 0
-	// TODO: can we safely delete this delay?
-	// Some optimization with LTO won't start without this delay, but why?
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-#endif
+
 	startup_early_hook(); // must be in FLASHMEM, as ITCM is not yet initialized!
 	PMU_MISC0_SET = 1<<3; //Use bandgap-based bias currents for best performance (Page 1175)
 
@@ -100,48 +113,9 @@ static void ResetHandler2(void)
 	const uint32_t sys_pfd = 0x2018101B; // PFD3:297,PFD2:396,PFD1:594,PFD0:352 MHz
 	// USB PFD Freq uency= 480 MHz * 18 / frac8   (where frac8 range is 12 to 35)
 	const uint32_t usb_pfd = 0x13110D0C; // PFD3:454,PFD2:508,PFD1:664,PFD0:720 MHz
-#ifdef GATE_PFD_WHILE_CHANGE
-	CCM_ANALOG_PFD_528_SET = 0x80808080;
-	CCM_ANALOG_PFD_528 = sys_pfd | 0x80808080;
-	CCM_ANALOG_PFD_528;
-	//while ((CCM_ANALOG_PFD_528 & 0x40404040) != 0x40404040) ; // wait for stable
-	CCM_ANALOG_PFD_528_CLR = 0x80808080;
-	CCM_ANALOG_PFD_480_SET = 0x80808080;
-	CCM_ANALOG_PFD_480 = usb_pfd | 0x80808080;
-	CCM_ANALOG_PFD_480;
-	//while ((CCM_ANALOG_PFD_480 & 0x40404040) != 0x40404040) ; // wait for stable
-	CCM_ANALOG_PFD_480_CLR = 0x80808080;
-#else
 	CCM_ANALOG_PFD_528 = sys_pfd;
 	CCM_ANALOG_PFD_480 = usb_pfd;
-#endif
 
-#if 0
-	// TODO: can we safely delete this delay?
-	// Some optimization with LTO won't start without this delay, but why?
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-	asm volatile("nop");
-#endif
 	// pin 13 - if startup crashes, use this to turn on the LED early for troubleshooting
 	//IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_03 = 5;
 	//IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 = IOMUXC_PAD_DSE(7);
