@@ -128,7 +128,7 @@ int Print::vprintf(const char *format, va_list ap)
 	fdev_set_udata(&f, this);
 	return vfprintf(&f, format, ap);
 }
-//#define USE_HACKER_DELIGHT_OPTIMIZATION
+
 int Print::vprintf(const __FlashStringHelper *format, va_list ap)
 {
 	FILE f;

@@ -235,7 +235,7 @@ public:
 	}
 	int read() {
 		if (!f) return -1;
-		unsigned char b;
+		unsigned char b=0;
 		if (f->read(&b, 1) < 1) return -1;
 		return b;
 	}
@@ -272,7 +272,8 @@ private:
 class FS
 {
 public:
-	FS() {}
+	constexpr FS() {}
+	virtual ~FS() {}
 	virtual File open(const char *filename, uint8_t mode = FILE_READ) = 0;
 	virtual bool exists(const char *filepath) = 0;
 	virtual bool mkdir(const char *filepath) = 0;
@@ -286,6 +287,9 @@ public:
 	}
 	virtual bool mediaPresent() {
 		return true;
+	}
+	virtual const char * name() {
+		return nullptr;
 	}
 	File open(const String &filepath, uint8_t mode = FILE_READ) {
 		// for compatibility with String input

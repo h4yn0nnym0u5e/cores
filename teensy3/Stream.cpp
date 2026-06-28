@@ -84,7 +84,7 @@ int Stream::peekNextDigit(LookaheadMode lookahead, bool detectDecimal)
 // Public Methods
 //////////////////////////////////////////////////////////////
 
-
+// as find but search ends if the terminator string is found
 bool  Stream::findUntil(const char *target, const char *terminator)
 {
   if(target == nullptr) return true;
@@ -125,11 +125,11 @@ bool Stream::findUntil(const char *target, size_t targetLen, const char *termina
   return false;
 }
 
-
 // returns the first valid (long) integer value from the current position.
-// initial characters that are not digits (or the minus sign) are skipped
-// function is terminated by the first character that is not a digit.
-
+// lookahead determines how parseInt looks ahead in the stream.
+// See LookaheadMode enumeration at the top of the file.
+// Lookahead is terminated by the first character that is not a valid part of an integer.
+// Once parsing commences, 'ignore' will be skipped in the stream.
 long Stream::parseInt(LookaheadMode lookahead, char ignore)
 {
   bool isNegative = false;
@@ -143,7 +143,7 @@ long Stream::parseInt(LookaheadMode lookahead, char ignore)
 
   do{
     if(c == ignore)
-      ; // ignore this charactor
+      ; // ignore this character
     else if(c == '-')
       isNegative = true;
     else if(c >= '0' && c <= '9')        // is c a digit?
@@ -158,7 +158,7 @@ long Stream::parseInt(LookaheadMode lookahead, char ignore)
   return value;
 }
 
-
+// as parseInt but returns a floating point value
 float Stream::parseFloat(LookaheadMode lookahead, char ignore)
 {
   bool isNegative = false;
